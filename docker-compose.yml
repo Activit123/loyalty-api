@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  postgres-db:
+    image: postgres:15
+    container_name: barlog-postgres
+    environment:
+      POSTGRES_USER: barloguser
+      POSTGRES_PASSWORD: barlogpassword
+      POSTGRES_DB: barlogdb
+    ports:
+      - "5433:5432"
+    volumes:
+      - barlog-db-data:/var/lib/postgresql/data
+
+volumes:
+  barlog-db-data:
