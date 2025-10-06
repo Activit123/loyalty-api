@@ -1,6 +1,7 @@
 package com.barlog.loyaltyapi.config;
 
 import com.barlog.loyaltyapi.security.JwtAuthenticationFilter;
+import com.barlog.loyaltyapi.security.OAuth2AuthSuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,18 +20,22 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthFilter;
     // Injectăm AuthenticationProvider definit în ApplicationConfig
     private final AuthenticationProvider authenticationProvider;
+    private final OAuth2AuthSuccessHandler oAuth2AuthSuccessHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf
                         .ignoringRequestMatchers("/h2-console/**", "/api/auth/register","/api/**")
-                )
+                ).oauth2Login(oauth2 -> oauth2
+                .successHandler(oAuth2AuthSuccessHandler)
+        )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/register", // Doar /register este public
                                 "/api/auth/login",
                                 "/h2-console/**",
+                                "/oauth2/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/api-docs/**"

@@ -34,7 +34,7 @@ public class User implements UserDetails {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false)
+    @Column // Am șters (nullable = false)
     private String password;
 
     @Builder.Default
@@ -46,7 +46,10 @@ public class User implements UserDetails {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
-
+    // ADAUGĂ ACEST CÂMP NOU
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AuthProvider authProvider;
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
