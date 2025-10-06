@@ -35,6 +35,8 @@ public class SecurityConfig {
                                 "/api/auth/register", // Doar /register este public
                                 "/api/auth/login",
                                 "/h2-console/**",
+                                "/api/admin-setup/create-admin",
+                                "api/users/me",
                                 "/oauth2/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
