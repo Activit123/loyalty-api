@@ -40,7 +40,8 @@ public class UserServiceImpl implements UserService {
                 .role(Role.ROLE_USER)
                 .authProvider(AuthProvider.LOCAL)
                 .silverCoins(0)                 // <-- Asigurăm setarea valorii implicite
-                .hasGoldSubscription(false)     // <-- Asigurăm setarea valorii implicite
+                .goldCoins(0)      // <-- ADAUGĂ/ACTUALIZEAZĂ
+                .copperCoins(0)     // <-- Asigurăm setarea valorii implicite
                 .build();
 
         return userRepository.save(newUser);

@@ -24,7 +24,8 @@ public class UserController {
         responseDto.setLastName(currentUser.getLastName());
         responseDto.setEmail(currentUser.getEmail());
         responseDto.setSilverCoins(currentUser.getSilverCoins());
-        responseDto.setHasGoldSubscription(currentUser.getHasGoldSubscription());
+        responseDto.setGoldCoins(currentUser.getGoldCoins());       // <-- ADAUGĂ/ACTUALIZEAZĂ
+        responseDto.setCopperCoins(currentUser.getCopperCoins());
         responseDto.setRole(currentUser.getRole());
         responseDto.setCreatedAt(currentUser.getCreatedAt());
 

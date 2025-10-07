@@ -39,7 +39,8 @@ public class AuthController {
             responseDto.setLastName(newUser.getLastName());
             responseDto.setEmail(newUser.getEmail());
             responseDto.setSilverCoins(newUser.getSilverCoins());
-            responseDto.setHasGoldSubscription(newUser.getHasGoldSubscription());
+            responseDto.setGoldCoins(newUser.getGoldCoins());       // <-- ADAUGĂ/ACTUALIZEAZĂ
+            responseDto.setCopperCoins(newUser.getCopperCoins());
             responseDto.setRole(newUser.getRole());
             responseDto.setCreatedAt(newUser.getCreatedAt());
 

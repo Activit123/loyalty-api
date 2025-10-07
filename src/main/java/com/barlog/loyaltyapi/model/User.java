@@ -41,7 +41,11 @@ public class User implements UserDetails {
     private Integer silverCoins = 0;
 
     @Builder.Default
-    private Boolean hasGoldSubscription = false;
+    private Integer goldCoins = 0;
+
+    // AM ADĂUGAT:
+    @Builder.Default
+    private Integer copperCoins = 0;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
