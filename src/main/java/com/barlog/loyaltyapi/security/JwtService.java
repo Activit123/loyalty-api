@@ -1,11 +1,12 @@
 package com.barlog.loyaltyapi.security;
 
+import com.barlog.loyaltyapi.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -14,12 +15,16 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class JwtService {
 
     @Value("${application.security.jwt.secret-key}")
     private String secretKey;
+
+    // Durata de viață a token-ului: 24 ore în milisecunde
+    private static final long JWT_EXPIRATION = 1000 * 60 * 60 * 24;
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -30,17 +35,34 @@ public class JwtService {
         return claimsResolver.apply(claims);
     }
 
+    // Aceasta devine metoda principală de generare
     public String generateToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails);
+        Map<String, Object> extraClaims = new HashMap<>();
+
+        // Extragem rolul într-un mod sigur
+        String role = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .findFirst()
+                .orElse(""); // Valoare goală dacă nu găsește niciun rol
+
+        extraClaims.put("role", role);
+
+        // Adăugăm și ID-ul dacă este o instanță a clasei noastre User
+        if (userDetails instanceof User) {
+            extraClaims.put("userId", ((User) userDetails).getId());
+        }
+
+        return buildToken(extraClaims, userDetails, JWT_EXPIRATION);
     }
 
-    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+    // O metodă privată, helper, pentru a construi token-ul
+    private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, long expiration) {
         return Jwts.builder()
-                .claims(extraClaims) // Metoda modernă este claims()
+                .claims(extraClaims)
                 .subject(userDetails.getUsername())
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 24)) // 24 ore
-                .signWith(getSignInKey(), Jwts.SIG.HS256) // Sintaxa modernă pentru algoritm
+                .expiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(getSignInKey(), Jwts.SIG.HS256)
                 .compact();
     }
 
@@ -50,16 +72,13 @@ public class JwtService {
     }
 
     private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
-    }
-
-    private Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
+        return extractClaim(token, Claims::getExpiration).before(new Date());
     }
 
     private Claims extractAllClaims(String token) {
+        SecretKey key = getSignInKey();
         return Jwts.parser()
-                .verifyWith(getSignInKey())
+                .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

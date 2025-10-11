@@ -37,15 +37,9 @@ public class User implements UserDetails {
     @Column // Am șters (nullable = false)
     private String password;
 
+    @Column(name = "coins")
     @Builder.Default
-    private Integer silverCoins = 0;
-
-    @Builder.Default
-    private Integer goldCoins = 0;
-
-    // AM ADĂUGAT:
-    @Builder.Default
-    private Integer copperCoins = 0;
+    private Integer coins = 0;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

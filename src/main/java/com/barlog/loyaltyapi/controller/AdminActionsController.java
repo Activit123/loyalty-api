@@ -1,0 +1,32 @@
+package com.barlog.loyaltyapi.controller;
+
+import com.barlog.loyaltyapi.dto.AddCoinsRequestDto;
+import com.barlog.loyaltyapi.dto.UserResponseDto;
+import com.barlog.loyaltyapi.service.AdminService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/admin/actions")
+@RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
+public class AdminActionsController {
+    private final AdminService adminService;
+
+    @GetMapping("/users/{userId}")
+    public ResponseEntity<UserResponseDto> getUserDetails(@PathVariable Long userId) {
+        UserResponseDto userDto = adminService.getUserById(userId);
+        return ResponseEntity.ok(userDto);
+    }
+
+    @PostMapping("/users/{userId}/add-coins")
+    public ResponseEntity<UserResponseDto> addCoinsToUser(
+            @PathVariable Long userId,
+            @Valid @RequestBody AddCoinsRequestDto addCoinsRequest) {
+        UserResponseDto updatedUser = adminService.addCoinsToUser(userId, addCoinsRequest);
+        return ResponseEntity.ok(updatedUser);
+    }
+}

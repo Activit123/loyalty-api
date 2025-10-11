@@ -39,9 +39,7 @@ public class UserServiceImpl implements UserService {
                 .password(passwordEncoder.encode(registerUserDto.getPassword()))
                 .role(Role.ROLE_USER)
                 .authProvider(AuthProvider.LOCAL)
-                .silverCoins(0)                 // <-- Asigurăm setarea valorii implicite
-                .goldCoins(0)      // <-- ADAUGĂ/ACTUALIZEAZĂ
-                .copperCoins(0)     // <-- Asigurăm setarea valorii implicite
+                .coins(0)               // <-- Asigurăm setarea valorii implicite// <-- Asigurăm setarea valorii implicite
                 .build();
 
         return userRepository.save(newUser);

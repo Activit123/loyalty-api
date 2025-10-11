@@ -53,9 +53,7 @@ public class AdminController {
                 .password(passwordEncoder.encode(registerUserDto.getPassword()))
                 .role(Role.ROLE_ADMIN) // Setăm rolul ca ADMIN
                 .authProvider(AuthProvider.LOCAL)
-                .silverCoins(0)
-                .goldCoins(0)
-                .silverCoins(0)
+                .coins(0)
                 .build();
 
         userRepository.save(adminUser);

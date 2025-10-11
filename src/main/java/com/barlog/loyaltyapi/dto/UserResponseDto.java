@@ -10,11 +10,9 @@ public class UserResponseDto {
     private String firstName;
     private String lastName;
     private String email;
-    private Integer silverCoins;
+    private Integer coins;
     // AM ȘTERS: private Boolean hasGoldSubscription;
     // AM ADĂUGAT:
-    private Integer goldCoins;
-    private Integer copperCoins;
     private Role role;
     private LocalDateTime createdAt;
 }
