@@ -1,7 +1,6 @@
 package com.barlog.loyaltyapi.service;
 
-import com.barlog.loyaltyapi.dto.AddCoinsRequestDto;
-import com.barlog.loyaltyapi.dto.UserResponseDto;
+import com.barlog.loyaltyapi.dto.*;
 import com.barlog.loyaltyapi.model.CoinTransaction;
 import com.barlog.loyaltyapi.model.User;
 import com.barlog.loyaltyapi.repository.CoinTransactionRepository;
@@ -11,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -18,11 +19,13 @@ public class AdminService {
     private final UserRepository userRepository;
     private final CoinTransactionRepository coinTransactionRepository;
 
+
     public UserResponseDto getUserById(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
         return mapUserToDto(user);
     }
+
 
     @Transactional
     public UserResponseDto addCoinsToUser(Long userId, AddCoinsRequestDto request) {
@@ -44,6 +47,17 @@ public class AdminService {
         return mapUserToDto(updatedUser);
     }
 
+    @Transactional
+    public UserResponseDto adjustUserCoins(Long userId, AdjustCoinsRequestDto request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Utilizatorul cu ID-ul " + userId + " nu a fost găsit."));
+
+        user.setCoins(request.getNewCoinBalance());
+
+        User updatedUser = userRepository.save(user);
+        return mapUserToDto(updatedUser);
+    }
+
     private UserResponseDto mapUserToDto(User user) {
         UserResponseDto dto = new UserResponseDto();
         dto.setId(user.getId());
@@ -54,5 +68,36 @@ public class AdminService {
         dto.setRole(user.getRole());
         dto.setCreatedAt(user.getCreatedAt());
         return dto;
+    }
+    /**
+     * Returnează top 10 utilizatori pe baza punctelor de loialitate (coins).
+     */
+    public List<UserLeaderboardDto> getLeaderboard() {
+        List<User> topUsers = userRepository.findTop10ByOrderByCoinsDesc();
+        return topUsers.stream()
+                .map(user -> new UserLeaderboardDto(
+                        user.getFirstName(),
+                        user.getLastName(),
+                        user.getEmail(),
+                        user.getCoins() // Am schimbat din getLoyaltyPoints() în getCoins()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Returnează istoricul global al tranzacțiilor.
+     */
+    public List<TransactionDetailsDto> getGlobalTransactions() {
+        // Presupunând că entitatea Transaction are o relație @ManyToOne cu User
+        List<CoinTransaction> transactions = coinTransactionRepository.findAllByOrderByCreatedAtDesc();
+        return transactions.stream()
+                .map(transaction -> new TransactionDetailsDto(
+                        transaction.getId(),
+                        transaction.getUser().getEmail(),
+                        transaction.getAmount(),
+                        transaction.getCreatedAt(),
+                        transaction.getDescription()
+                ))
+                .collect(Collectors.toList());
     }
 }

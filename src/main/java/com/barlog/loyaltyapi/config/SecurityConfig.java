@@ -5,11 +5,13 @@ import com.barlog.loyaltyapi.security.OAuth2AuthSuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
@@ -32,47 +34,55 @@ public class SecurityConfig {
     private final AuthenticationProvider authenticationProvider;
     private final OAuth2AuthSuccessHandler oAuth2AuthSuccessHandler;
 
+    // Definim un array static pentru rutele publice pentru o mai bună lizibilitate și mentenanță
+    private static final String[] PUBLIC_URLS = {
+            // --- Căile corecte și complete pentru Swagger/SpringDoc ---
+            "/swagger-ui.html",
+            "/swagger-ui/**",          // <-- MODIFICARE CHEIE: Permite accesul la TOATE resursele UI-ului
+            "/v3/api-docs/**",         // <-- MODIFICARE CHEIE: Permite accesul la definiția API și resursele conexe
+            "/swagger-resources/**",   // <-- Adăugat pentru compatibilitate
+            "/webjars/**",             // <-- Adăugat pentru resursele statice (CSS, JS)
+
+            // --- Restul rutelor publice ---
+            "/api/auth/**",            // <-- Folosim wildcard pentru a acoperi toate sub-rutele
+            "/oauth2/**",
+            "/api/products",           // Presupunând că listarea produselor e publică
+            "/uploads/images/**",      // <-- Folosim wildcard
+            "/api/admin-setup/create-admin",
+            "/h2-console/**"           // <-- Folosim wildcard
+    };
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Activăm CORS folosind bean-ul de mai jos
                 .cors(withDefaults())
-                .csrf(csrf -> csrf
-                        .ignoringRequestMatchers("/h2-console/**", "/api/**")
-                )
+                .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        // --- Rute Publice (o listă completă și corectă) ---
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/oauth2/**",
-                                "/api/products", // Listarea de produse
-                                "/uploads/images/**", // Imaginile produselor
-                                "/api/admin-setup/create-admin",
-                                "/h2-console/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/api-docs/**"
-                        ).permitAll()
 
-                        // --- Rute Specifice pentru Admin ---
-                        // Orice rută care începe cu /api/admin/ necesită rolul ADMIN
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(PUBLIC_URLS).permitAll() // Utilizăm array-ul definit mai sus
+                        .requestMatchers(HttpMethod.GET, "/api/tables").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/tables").hasRole("ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/products/**").hasRole("ADMIN")
-                        // Orice altă rută sub /api/admin/ necesită rolul ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/products").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
 
-                        // --- Orice Altă Rută ---
-                        // Orice altceva (ex: /api/users/me) necesită doar autentificare
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+
                 .oauth2Login(oauth2 -> oauth2
+                        .loginPage("/login")
                         .successHandler(oAuth2AuthSuccessHandler)
                 )
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
-                );
+                )
+                // MODIFICARE ADĂUGATĂ: Necesar pentru a afișa consola H2 într-un iframe
+                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
 
         return http.build();
     }
@@ -80,10 +90,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Am păstrat lista ta completă de origini permise
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "https://localhost:5173", // Adăugat pentru HTTPS local
+                "https://localhost:5173",
                 "http://ec2-13-53-91-89.eu-north-1.compute.amazonaws.com:5173",
                 "https://barlog.netlify.app",
                 "http://192.168.1.100:5173",
@@ -93,7 +102,7 @@ public class SecurityConfig {
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // Aplicăm configurația pe toate căile, așa cum ai specificat
+        // MODIFICARE CHEIE: Înregistrarea pe "/**" este mai robustă și aplică politica pe toate căile
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
