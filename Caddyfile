@@ -1,0 +1,10 @@
+# Definește adresele pe care va asculta serverul
+# Le poți scrie pe toate pe o linie, separate de virgulă, sau pe linii separate
+https://localhost:8443, https://10.48.93.14:8443, https://10.11.4.35:8443 , https://172.29.128.1:8443, https://129ce4827202.ngrok-free.app {
+    # Activează TLS (SSL) folosind un certificat auto-semnat
+    # Caddy va include automat AMBELE nume (localhost și IP-ul) în certificat
+    tls internal
+
+    # Redirecționează tot traficul către serverul Spring Boot
+    reverse_proxy localhost:8090
+}

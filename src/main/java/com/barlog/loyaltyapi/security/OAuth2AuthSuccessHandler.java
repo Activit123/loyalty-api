@@ -61,7 +61,7 @@ public class OAuth2AuthSuccessHandler extends SimpleUrlAuthenticationSuccessHand
         String jwtToken = jwtService.generateToken(user);
 
         // Construim URL-ul de redirect către frontend, cu token-ul ca parametru
-       String targetUrl = UriComponentsBuilder.fromUriString("http://localhost:5173/auth/callback")
+       String targetUrl = UriComponentsBuilder.fromUriString("http://10.11.4.35:5173/auth/callback")
                 .queryParam("token", jwtToken)
                 .build().toUriString();
 /* String targetUrl = UriComponentsBuilder.fromUriString("http://ec2-13-53-91-89.eu-north-1.compute.amazonaws.com:5173/auth/callback")

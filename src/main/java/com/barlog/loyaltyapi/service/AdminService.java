@@ -44,7 +44,7 @@ public class AdminService {
         return mapUserToDto(updatedUser);
     }
 
-    private UserResponseDto mapUserToDto(User user) {
+    public UserResponseDto mapUserToDto(User user) {
         UserResponseDto dto = new UserResponseDto();
         dto.setId(user.getId());
         dto.setFirstName(user.getFirstName());
