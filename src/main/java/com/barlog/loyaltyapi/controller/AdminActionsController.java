@@ -1,6 +1,7 @@
 package com.barlog.loyaltyapi.controller;
 
 import com.barlog.loyaltyapi.dto.AddCoinsRequestDto;
+import com.barlog.loyaltyapi.dto.AdjustCoinsRequestDto;
 import com.barlog.loyaltyapi.dto.UserResponseDto;
 import com.barlog.loyaltyapi.service.AdminService;
 import jakarta.validation.Valid;
@@ -27,6 +28,13 @@ public class AdminActionsController {
             @PathVariable Long userId,
             @Valid @RequestBody AddCoinsRequestDto addCoinsRequest) {
         UserResponseDto updatedUser = adminService.addCoinsToUser(userId, addCoinsRequest);
+        return ResponseEntity.ok(updatedUser);
+    }
+    @PatchMapping("/{userId}/coins")
+    public ResponseEntity<UserResponseDto> adjustCoinBalance(
+            @PathVariable Long userId,
+            @Valid @RequestBody AdjustCoinsRequestDto request) {
+        UserResponseDto updatedUser = adminService.adjustUserCoins(userId, request);
         return ResponseEntity.ok(updatedUser);
     }
 }

@@ -19,7 +19,7 @@ public class ApplicationConfig {
 
     private final UserRepository userRepository;
 
-    @Bean
+    @Bean // <-- AICI ESTE LOCUL CORECT PENTRU ACEASTĂ ADNOTARE
     public UserDetailsService userDetailsService() {
         return username -> userRepository.findByEmail(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + username));
