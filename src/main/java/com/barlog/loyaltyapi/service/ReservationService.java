@@ -24,7 +24,7 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final UserRepository userRepository; // Dependința adăugată
     private final TableRepository tableRepository;
-
+    private final NotificationService notificationService;
     /**
      * Creează o rezervare pentru utilizatorul autentificat.
      * @param user Utilizatorul autentificat, injectat de Spring Security.
@@ -58,6 +58,8 @@ public class ReservationService {
                 .status(ReservationStatus.CONFIRMED)
                 .build();
         reservationRepository.save(reservation);
+        AdminReservationViewDto notificationData = mapToAdminReservationDto(reservation);
+        notificationService.sendNotificationToAllAdmins("new_reservation", notificationData);
     }
 
     /**
@@ -93,6 +95,8 @@ public class ReservationService {
                 .status(ReservationStatus.CONFIRMED)
                 .build();
         Reservation savedReservation = reservationRepository.save(reservation);
+        AdminReservationViewDto notificationData = mapToAdminReservationDto(savedReservation);
+        notificationService.sendNotificationToAllAdmins("new_reservation", notificationData);
         return mapToAdminReservationDto(savedReservation);
     }
 
@@ -110,7 +114,7 @@ public class ReservationService {
         R_Table table = reservation.getTable(); // Folosim 'Table'
         table.setStatus(TableStatus.AVAILABLE);
         tableRepository.save(table);
-
+        notificationService.sendNotificationToAllAdmins("reservation_cancelled", notificationService);
         reservationRepository.delete(reservation);
     }
 
@@ -130,6 +134,7 @@ public class ReservationService {
         tableRepository.save(table);
 
         reservationRepository.deleteById(reservationId);
+        notificationService.sendNotificationToAllAdmins("reservation_cancelled", notificationService);
     }
 
     private AdminReservationViewDto mapToAdminReservationDto(Reservation reservation) {
