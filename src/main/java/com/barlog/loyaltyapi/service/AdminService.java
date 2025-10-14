@@ -1,6 +1,9 @@
 package com.barlog.loyaltyapi.service;
 
 import com.barlog.loyaltyapi.dto.AddCoinsRequestDto;
+import com.barlog.loyaltyapi.dto.AdjustCoinsRequestDto;
+import com.barlog.loyaltyapi.dto.TransactionDetailsDto;
+import com.barlog.loyaltyapi.dto.UserLeaderboardDto;
 import com.barlog.loyaltyapi.dto.UserResponseDto;
 import com.barlog.loyaltyapi.model.CoinTransaction;
 import com.barlog.loyaltyapi.model.User;
@@ -10,7 +13,10 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,7 +29,32 @@ public class AdminService {
                 .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
         return mapUserToDto(user);
     }
-
+    // --- Metodă Nouă ---
+    @Transactional
+    public UserResponseDto addCoinsToUserByEmail(String email, AddCoinsRequestDto request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + email));
+        return processCoinAddition(user, request);
+    }
+    // --- Metodă Nouă ---
+    public UserResponseDto getUserByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + email));
+        return mapUserToDto(user);
+    }
+    private UserResponseDto processCoinAddition(User user, AddCoinsRequestDto request) {
+        user.setCoins(user.getCoins() + request.amount());
+        CoinTransaction transaction = CoinTransaction.builder()
+                .user(user)
+                .amount(request.amount())
+                .description(request.description())
+                .transactionType(request.amount() > 0 ? "ADMIN_ADD" : "ADMIN_REMOVE")
+                .createdAt(LocalDateTime.now())
+                .build();
+        coinTransactionRepository.save(transaction);
+        User updatedUser = userRepository.save(user);
+        return mapUserToDto(updatedUser);
+    }
     @Transactional
     public UserResponseDto addCoinsToUser(Long userId, AddCoinsRequestDto request) {
         User user = userRepository.findById(userId)
@@ -42,6 +73,48 @@ public class AdminService {
 
         User updatedUser = userRepository.save(user);
         return mapUserToDto(updatedUser);
+    }
+
+    @Transactional
+    public UserResponseDto adjustUserCoins(Long userId, AdjustCoinsRequestDto request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Utilizatorul cu ID-ul " + userId + " nu a fost găsit."));
+
+        user.setCoins(request.getNewCoinBalance());
+
+        User updatedUser = userRepository.save(user);
+        return mapUserToDto(updatedUser);
+    }
+
+    /**
+     * Returnează top 10 utilizatori pe baza punctelor de loialitate (coins).
+     */
+    public List<UserLeaderboardDto> getLeaderboard() {
+        List<User> topUsers = userRepository.findTop10ByOrderByCoinsDesc();
+        return topUsers.stream()
+                .map(user -> new UserLeaderboardDto(
+                        user.getFirstName(),
+                        user.getLastName(),
+                        user.getEmail(),
+                        user.getCoins()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Returnează istoricul global al tranzacțiilor.
+     */
+    public List<TransactionDetailsDto> getGlobalTransactions() {
+        List<CoinTransaction> transactions = coinTransactionRepository.findAllByOrderByCreatedAtDesc();
+        return transactions.stream()
+                .map(transaction -> new TransactionDetailsDto(
+                        transaction.getId(),
+                        transaction.getUser().getEmail(),
+                        transaction.getAmount(),
+                        transaction.getCreatedAt(),
+                        transaction.getDescription()
+                ))
+                .collect(Collectors.toList());
     }
 
     public UserResponseDto mapUserToDto(User user) {

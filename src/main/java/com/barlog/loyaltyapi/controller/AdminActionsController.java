@@ -22,7 +22,18 @@ public class AdminActionsController {
         UserResponseDto userDto = adminService.getUserById(userId);
         return ResponseEntity.ok(userDto);
     }
-
+    @GetMapping("/users/by-email/{email}")
+    public ResponseEntity<UserResponseDto> getUserDetailsByEmail(@PathVariable String email) {
+        UserResponseDto userDto = adminService.getUserByEmail(email);
+        return ResponseEntity.ok(userDto);
+    }
+    @PostMapping("/users/by-email/{email}/add-coins")
+    public ResponseEntity<UserResponseDto> addCoinsToUserByEmail(
+            @PathVariable String email,
+            @Valid @RequestBody AddCoinsRequestDto addCoinsRequest) {
+        UserResponseDto updatedUser = adminService.addCoinsToUserByEmail(email, addCoinsRequest);
+        return ResponseEntity.ok(updatedUser);
+    }
     @PostMapping("/users/{userId}/add-coins")
     public ResponseEntity<UserResponseDto> addCoinsToUser(
             @PathVariable Long userId,

@@ -11,6 +11,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
@@ -33,54 +34,71 @@ public class SecurityConfig {
     private final AuthenticationProvider authenticationProvider;
     private final OAuth2AuthSuccessHandler oAuth2AuthSuccessHandler;
 
+    // Array static pentru rutele publice (folosit pentru lizibilitate și mentenanță)
+    private static final String[] PUBLIC_URLS = {
+            // Swagger / OpenAPI / SpringDoc
+            "/swagger-ui.html",
+            "/swagger-ui/**",
+            "/v3/api-docs/**",
+            "/swagger-resources/**",
+            "/webjars/**",
+
+            // API publice
+            "/api/auth/**",
+            "/oauth2/**",
+            "/api/ai/**",
+            "/api/products",
+            "/uploads/images/**",
+            "/api/admin-setup/create-admin",
+
+            // H2 console
+            "/h2-console/**"
+    };
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // CORS
                 .cors(withDefaults())
+
+                // CSRF: păstrăm excepțiile utile pentru H2 și API-uri (nu dezactivăm complet)
                 .csrf(csrf -> csrf
                         .ignoringRequestMatchers("/h2-console/**", "/api/**")
                 )
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS).permitAll()
-                        // --- Rute Publice ---
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/oauth2/**",
-                                // Swagger-ul trebuie să fie complet public
-                                // Am actualizat căile pentru a se potrivi cu cele implicite ale SpringDoc
-                                "/swagger-ui.html",
-                                "/swagger-ui/**",
-                                "/api/ai/**",
-                                "/v3/api-docs/**", // <-- Calea nouă și corectă
-                                // Restul rutelor publice
-                                "/api/products",
-                                "/uploads/images/**",
-                                "/api/admin-setup/create-admin",
-                                "/h2-console/**"
-                        ).permitAll()
 
-                        // --- Rute Specifice pentru Admin ---
+                // Authorization rules
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(PUBLIC_URLS).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/tables").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/tables").hasRole("ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/products").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
-
-                        // --- Orice Altă Rută ---
                         .anyRequest().authenticated()
                 )
+
+                // Stateless sessions pentru API
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                // Provider și filtre
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
 
-                // --- AICI ESTE MODIFICAREA CHEIE ---
+                // OAuth2 login (dacă este folosit)
                 .oauth2Login(oauth2 -> oauth2
-                        .loginPage("/login") // Chiar dacă nu avem o pagină aici, ajută la configurare
+                        .loginPage("/login")
                         .successHandler(oAuth2AuthSuccessHandler)
                 )
+
+                // Error handling pentru API REST
                 .exceptionHandling(e -> e
-                        // Acest handler este crucial pentru API-urile REST
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
-                );
+                )
+
+                // Permite afișarea consola H2 într-un iframe din aceeași origine
+                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
 
         return http.build();
     }
@@ -88,28 +106,29 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Am păstrat lista ta completă de origini permise
-        configuration.setAllowedOrigins(List.of(
+
+        // Folosim pattern-uri pentru a permite și wildcard-uri utile (ex: ngrok)
+        configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:5173",
-                "https://localhost:5173", // Adăugat pentru HTTPS local
+                "https://localhost:5173",
                 "http://ec2-13-53-91-89.eu-north-1.compute.amazonaws.com:5173",
                 "https://barlog.netlify.app",
                 "http://192.168.1.100:5173",
-                "https://172.29.128.1:5173",
-                "https://*:5173",
-                "https://bebf35af8d0c.ngrok-free.app",
-                "https://*.ngrok-free.app",
-                "https://10.11.4.35:5173",
-                "http://10.11.4.35:5173",
                 "http://172.29.128.1:5173",
-                "https://10.48.93.14:5173",
-                "http://10.48.93.87:5173"
+                "https://*.ngrok-free.app",
+                "https://bebf35af8d0c.ngrok-free.app",
+                "http://10.11.4.35:5173",
+                "https://10.11.4.35:5173",
+                "http://10.48.93.87:5173",
+                "https://10.48.93.14:5173"
         ));
+
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // Aplicăm configurația pe toate căile, așa cum ai specificat
+        // Aplicăm politica CORS pe toate căile
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }

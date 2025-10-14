@@ -38,4 +38,25 @@ public class ProductController {
         List<ProductResponseDto> products = productService.getAllProducts();
         return ResponseEntity.ok(products);
     }
+    // --- ENDPOINT NOU PENTRU UPDATE ---
+    @PutMapping(value = "/{productId}", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ProductResponseDto> updateProduct(
+            @PathVariable Long productId,
+            @Valid @RequestPart("product") ProductRequestDto productDto,
+            // Imaginea este opțională la update
+            @RequestPart(value = "image", required = false) MultipartFile imageFile) {
+
+        ProductResponseDto updatedProduct = productService.updateProduct(productId, productDto, imageFile);
+        return ResponseEntity.ok(updatedProduct);
+    }
+
+    // --- ENDPOINT NOU PENTRU DELETE ---
+    @DeleteMapping("/{productId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteProduct(@PathVariable Long productId) {
+        productService.deleteProduct(productId);
+        return ResponseEntity.noContent().build(); // Răspuns 204 No Content
+    }
+
 }

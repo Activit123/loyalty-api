@@ -7,6 +7,7 @@ import com.barlog.loyaltyapi.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -45,7 +46,8 @@ public class ProductService {
     }
 
     public List<ProductResponseDto> getAllProducts() {
-        return productRepository.findAll().stream()
+        // Folosim noua metodă pentru a prelua doar produsele active
+        return productRepository.findByIsActiveTrueOrderByIdDesc().stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
     }
@@ -63,5 +65,43 @@ public class ProductService {
         dto.setImageUrl(product.getImageUrl());
         dto.setActive(product.isActive());
         return dto;
+    }
+    // --- METODĂ NOUĂ PENTRU UPDATE ---
+    @Transactional
+    public ProductResponseDto updateProduct(Long productId, ProductRequestDto productDto, MultipartFile imageFile) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new EntityNotFoundException("Produsul cu ID-ul " + productId + " nu a fost găsit."));
+
+        // Actualizăm câmpurile de text
+        product.setName(productDto.name());
+        product.setDescription(productDto.description());
+        product.setBuyPrice(productDto.buyPrice());
+        product.setClaimValue(productDto.claimValue());
+        product.setStock(productDto.stock());
+
+        // Dacă a fost încărcată o imagine nouă, o actualizăm
+        if (imageFile != null && !imageFile.isEmpty()) {
+            String fileName = fileStorageService.storeFile(imageFile);
+            String imageUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                    .path("/uploads/images/")
+                    .path(fileName)
+                    .toUriString();
+            product.setImageUrl(imageUrl);
+        }
+
+        Product updatedProduct = productRepository.save(product);
+        return mapToDto(updatedProduct);
+    }
+
+    // --- METODĂ NOUĂ PENTRU DELETE ---
+    @Transactional
+    public void deleteProduct(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new EntityNotFoundException("Produsul cu ID-ul " + productId + " nu a fost găsit."));
+
+        // În loc să ștergem, setăm produsul ca fiind inactiv
+        product.setActive(false);
+
+        productRepository.save(product);
     }
 }
