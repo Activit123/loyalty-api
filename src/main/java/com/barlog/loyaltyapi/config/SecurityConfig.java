@@ -42,7 +42,7 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/swagger-resources/**",
             "/webjars/**",
-
+            "/api/announcements",
             // API publice
             "/api/auth/**",
             "/oauth2/**",
@@ -64,6 +64,7 @@ public class SecurityConfig {
                 // CSRF: păstrăm excepțiile utile pentru H2 și API-uri (nu dezactivăm complet)
                 .csrf(csrf -> csrf
                         .ignoringRequestMatchers("/h2-console/**", "/api/**")
+
                 )
 
                 // Authorization rules

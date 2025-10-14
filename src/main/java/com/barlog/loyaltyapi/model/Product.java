@@ -29,7 +29,7 @@ public class Product {
     @Column(name = "claim_value", nullable = false)
     private Integer claimValue;
 
-    @Column(nullable = true) // Stocul poate fi null pentru -1, dar vom gestiona asta
+//    @Column(nullable = true) // Stocul poate fi null pentru -1, dar vom gestiona asta
     private Integer stock;
 
     @Column(name = "image_url")
