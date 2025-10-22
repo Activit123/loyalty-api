@@ -59,4 +59,9 @@ public class AnnouncementService {
         dto.setCreatedAt(announcement.getCreatedAt());
         return dto;
     }
+    public AnnouncementDto getAnnouncementById(Long id) {
+        Announcement announcement = announcementRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Anunțul cu ID " + id + " nu a fost găsit."));
+        return mapToDto(announcement);
+    }
 }
