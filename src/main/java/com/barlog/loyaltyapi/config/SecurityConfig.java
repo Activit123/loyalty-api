@@ -42,7 +42,7 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/swagger-resources/**",
             "/webjars/**",
-            "/api/announcements",
+            "/api/announcements/**",
             // API publice
             "/api/auth/**",
             "/oauth2/**",
