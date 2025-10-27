@@ -24,6 +24,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final CoinTransactionRepository coinTransactionRepository;
+    private final ExperienceService experienceService;
 
     @Override
     public User registerUser(RegisterUserDto registerUserDto) {
@@ -46,6 +47,8 @@ public class UserServiceImpl implements UserService {
                 .role(Role.ROLE_USER)
                 .authProvider(AuthProvider.LOCAL)
                 .coins(0)
+                .experience((long) 0.0f)
+                .xpRate(1.0)
                 .build();
 
         return userRepository.save(newUser);
@@ -69,7 +72,15 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         coinTransactionRepository.save(transaction);
-
+        experienceService.addExperienceForReceiptClaim(currentUser, claimRequest.getAmount());
+        return userRepository.save(currentUser);
+    }
+    @Transactional
+    public User updateNickname(User currentUser, String newNickname) {
+        if (userRepository.findByNickname(newNickname).isPresent()) {
+            throw new IllegalStateException("Acest nickname este deja folosit.");
+        }
+        currentUser.setNickname(newNickname);
         return userRepository.save(currentUser);
     }
 }

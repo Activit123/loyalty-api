@@ -39,6 +39,7 @@ public class SecurityConfig {
             // Swagger / OpenAPI / SpringDoc
             "/swagger-ui.html",
             "/swagger-ui/**",
+            "/api/character/**",
             "/v3/api-docs/**",
             "/swagger-resources/**",
             "/webjars/**",
@@ -107,9 +108,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-
+        configuration.setAllowedOriginPatterns(List.of("*"));
         // Folosim pattern-uri pentru a permite și wildcard-uri utile (ex: ngrok)
-        configuration.setAllowedOriginPatterns(List.of(
+       /* configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:5173",
                 "https://localhost:5173",
                 "http://ec2-13-53-91-89.eu-north-1.compute.amazonaws.com:5173",
@@ -123,8 +124,8 @@ public class SecurityConfig {
                 "http://10.48.93.87:5173",
                 "https://10.48.93.14:5173"
         ));
-
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+*/
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT","PATCH","DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 

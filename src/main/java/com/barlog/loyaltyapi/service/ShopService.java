@@ -23,6 +23,8 @@ public class ShopService {
     private final ProductRepository productRepository;
     private final CoinTransactionRepository coinTransactionRepository;
     private final ShopPurchaseRepository shopPurchaseRepository;
+    private final ExperienceService experienceService;
+    private final UserInventoryItemRepository userInventoryItemRepository; // Injectează noul repo
 
     @Transactional // Asigură că întreaga operațiune este atomică
     public User purchaseProduct(Long productId, User currentUser) {
@@ -69,10 +71,18 @@ public class ShopService {
                 .costAtPurchase(product.getBuyPrice())
                 .purchasedAt(LocalDateTime.now())
                 .build();
-        shopPurchaseRepository.save(purchase);
-
+        ShopPurchase savedPurchase = shopPurchaseRepository.save(purchase);
+        UserInventoryItem newItem = UserInventoryItem.builder()
+                .user(currentUser)
+                .product(product)
+                .purchase(savedPurchase)
+                .status("IN_INVENTORY")
+                // claimUid este generat automat de @PrePersist
+                .build();
+        userInventoryItemRepository.save(newItem);
         // Salvăm entitățile modificate
         productRepository.save(product);
+        experienceService.addExperienceForShopPurchase(currentUser, product.getBuyPrice(), product.getCategory());
         return userRepository.save(currentUser);
     }
     public List<MatchedProductDto> matchReceiptItems(ReceiptResponseDto receiptData) {

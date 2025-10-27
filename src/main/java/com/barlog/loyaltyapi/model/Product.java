@@ -28,6 +28,9 @@ public class Product {
 
     @Column(name = "claim_value", nullable = false)
     private Integer claimValue;
+    @Enumerated(EnumType.STRING)
+    @Column
+    private ProductCategory category;
 
 //    @Column(nullable = true) // Stocul poate fi null pentru -1, dar vom gestiona asta
     private Integer stock;

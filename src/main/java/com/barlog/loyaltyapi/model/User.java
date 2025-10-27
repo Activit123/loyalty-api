@@ -50,7 +50,22 @@ public class User implements UserDetails {
     private AuthProvider authProvider;
     @Column(updatable = false)
     private LocalDateTime createdAt;
+    @Column(nullable = false)
+    private Long experience = 0L;
 
+    @Column(name = "xp_rate", nullable = false)
+    private Double xpRate = 1.0;
+
+    @Column(length = 50, unique = true)
+    private String nickname;
+
+    @ManyToOne(fetch = FetchType.EAGER) // <-- ADAUGĂ ACEASTA
+    @JoinColumn(name = "race_id")
+    private Race race;
+
+    @ManyToOne(fetch = FetchType.EAGER) // <-- ADAUGĂ ACEASTA
+    @JoinColumn(name = "class_type_id")
+    private ClassType classType;
     private LocalDateTime updatedAt;
 
     @PrePersist

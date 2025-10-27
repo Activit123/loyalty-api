@@ -1,6 +1,7 @@
 package com.barlog.loyaltyapi.controller;
 
 import com.barlog.loyaltyapi.dto.ClaimRequestDto;
+import com.barlog.loyaltyapi.dto.NicknameRequestDto;
 import com.barlog.loyaltyapi.dto.UserResponseDto;
 import com.barlog.loyaltyapi.model.User;
 import com.barlog.loyaltyapi.service.AdminService;
@@ -9,13 +10,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor; // Importăm adnotarea
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody; // Importăm @RequestBody corect
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/users")
@@ -25,6 +23,7 @@ public class UserController {
     // 2. Injectăm interfața, nu implementarea specifică
     private final UserService userService;
     private final AdminService adminService;
+
 
     private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
@@ -49,5 +48,15 @@ public class UserController {
         User updatedUser = userService.claimReceiptCoins(currentUser, claimRequest);
 
         return ResponseEntity.ok(adminService.mapUserToDto(updatedUser));
+    }
+    @PutMapping("/me/nickname")
+    public ResponseEntity<?> updateUserNickname(Authentication authentication, @RequestBody @Valid NicknameRequestDto nicknameDto) {
+        User currentUser = (User) authentication.getPrincipal();
+        try {
+            userService.updateNickname(currentUser, nicknameDto.getNickname());
+            return ResponseEntity.ok("Nickname actualizat cu succes.");
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        }
     }
 }

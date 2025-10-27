@@ -23,7 +23,9 @@ import java.util.stream.Collectors;
 public class AdminService {
     private final UserRepository userRepository;
     private final CoinTransactionRepository coinTransactionRepository;
-
+    private final LevelService levelService;
+    private final ExperienceService experienceService;
+    private final CharacterService characterService;
     public UserResponseDto getUserById(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
@@ -34,6 +36,7 @@ public class AdminService {
     public UserResponseDto addCoinsToUserByEmail(String email, AddCoinsRequestDto request) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + email));
+        experienceService.addExperienceForReceiptClaim(user,request.amount());
         return processCoinAddition(user, request);
     }
     // --- Metodă Nouă ---
@@ -96,7 +99,12 @@ public class AdminService {
                         user.getFirstName(),
                         user.getLastName(),
                         user.getEmail(),
-                        user.getCoins()
+                        user.getCoins(),
+                        user.getExperience(),
+                        user.getNickname(),
+                        levelService.calculateLevelInfo(user.getExperience())
+
+
                 ))
                 .collect(Collectors.toList());
     }
@@ -126,6 +134,11 @@ public class AdminService {
         dto.setCoins(user.getCoins());
         dto.setRole(user.getRole());
         dto.setCreatedAt(user.getCreatedAt());
+        dto.setNickname(user.getNickname());
+        dto.setExperience(user.getExperience());
+        dto.setRace(user.getRace() != null ? characterService.mapToRaceDto(user.getRace()) : null);
+        dto.setClassType(user.getClassType() != null ? characterService.mapToClassTypeDto(user.getClassType()) : null);
+        dto.setLevelInfo(levelService.calculateLevelInfo(user.getExperience()));
         return dto;
     }
 }

@@ -37,6 +37,7 @@ public class ProductService {
                 .buyPrice(productDto.buyPrice())
                 .claimValue(productDto.claimValue())
                 .stock(productDto.stock())
+                .category(productDto.category()) // Adaugă această linie
                 .imageUrl(imageUrl) // Salvăm URL-ul complet
                 .isActive(true)
                 .build();
@@ -54,7 +55,7 @@ public class ProductService {
 
     // Aici pot fi adăugate metode pentru update și delete
 
-    private ProductResponseDto mapToDto(Product product) {
+    protected ProductResponseDto mapToDto(Product product) {
         ProductResponseDto dto = new ProductResponseDto();
         dto.setId(product.getId());
         dto.setName(product.getName());
@@ -77,6 +78,7 @@ public class ProductService {
         product.setDescription(productDto.description());
         product.setBuyPrice(productDto.buyPrice());
         product.setClaimValue(productDto.claimValue());
+        product.setCategory(productDto.category());
         product.setStock(productDto.stock());
 
         // Dacă a fost încărcată o imagine nouă, o actualizăm

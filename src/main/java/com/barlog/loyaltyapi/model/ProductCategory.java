@@ -1,0 +1,5 @@
+package com.barlog.loyaltyapi.model;
+public enum ProductCategory {
+    ENERGY_DRINK, SOFT_DRINK, WATER, BEER, SNACKS_SALT, COFFEE_TEA,
+    SUBSCRIPTION, ENTRY_FEE, GAME_WARGAME, GAME_STRATEGY, GAME_PARTY, GAME_COOP
+}

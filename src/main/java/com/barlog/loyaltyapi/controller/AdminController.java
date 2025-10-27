@@ -54,6 +54,8 @@ public class AdminController {
                 .role(Role.ROLE_ADMIN) // Setăm rolul ca ADMIN
                 .authProvider(AuthProvider.LOCAL)
                 .coins(0)
+                .experience((long) 0.0f)
+                .xpRate(1.0)
                 .build();
 
         userRepository.save(adminUser);

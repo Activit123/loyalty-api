@@ -15,4 +15,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByRole(Role role);
     List<User> findTop10ByOrderByCoinsDesc();
 
+    Optional<Object> findByNickname(String newNickname);
 }

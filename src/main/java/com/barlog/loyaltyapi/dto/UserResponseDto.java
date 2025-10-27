@@ -15,4 +15,10 @@ public class UserResponseDto {
     // AM ADĂUGAT:
     private Role role;
     private LocalDateTime createdAt;
+    private String nickname;
+    private Long experience;
+    private RaceDto race; // Vom trimite obiectul complet
+    private ClassTypeDto classType;
+    private LevelInfoDto levelInfo;
+
 }

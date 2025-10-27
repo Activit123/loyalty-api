@@ -1,5 +1,6 @@
 package com.barlog.loyaltyapi.dto;
 
+import com.barlog.loyaltyapi.model.ProductCategory;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -19,5 +20,7 @@ public record ProductRequestDto(
         Integer claimValue,
         
         @NotNull(message = "Stocul este obligatoriu (-1 pentru nelimitat)")
-        Integer stock
+        Integer stock,
+        @NotNull(message = "Categoria este obligatorie")
+        ProductCategory category
 ) {}
