@@ -63,6 +63,7 @@ public class ProductService {
         dto.setBuyPrice(product.getBuyPrice());
         dto.setClaimValue(product.getClaimValue());
         dto.setStock(product.getStock());
+        dto.setCategory(product.getCategory());
         dto.setImageUrl(product.getImageUrl());
         dto.setActive(product.isActive());
         return dto;
