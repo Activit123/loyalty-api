@@ -8,6 +8,7 @@ COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
 # copy source
+COPY uploads ./uploads
 COPY src ./src
 
 # if you use additional modules or resources, copy them too
@@ -22,6 +23,7 @@ WORKDIR /app
 # copy jar from build stage
 ARG JAR_FILE=target/*.jar
 COPY --from=build /workspace/${JAR_FILE} app.jar
+COPY --from=build /workspace/uploads ./uploads
 
 EXPOSE 8090
 
