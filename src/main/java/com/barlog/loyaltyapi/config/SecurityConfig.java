@@ -50,6 +50,7 @@ public class SecurityConfig {
             "/api/ai/**",
             "/api/products",
             "/api/games",
+            "/api/admin/reporting/leaderboard",
             "/uploads/images/**",
             "/api/admin-setup/create-admin",
 

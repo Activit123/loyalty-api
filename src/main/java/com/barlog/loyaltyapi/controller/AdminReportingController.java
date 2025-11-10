@@ -15,7 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin/reporting") // Am ales un URL sugestiv
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')") // Securizăm toate endpoint-urile din controller
+// Securizăm toate endpoint-urile din controller
 public class AdminReportingController {
 
     private final AdminService adminService;
@@ -34,6 +34,7 @@ public class AdminReportingController {
      * Endpoint pentru a vedea istoricul tuturor tranzacțiilor din sistem.
      * URL: GET /api/admin/reporting/transactions/global
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/transactions/global")
     public ResponseEntity<List<TransactionDetailsDto>> getGlobalTransactions() {
         List<TransactionDetailsDto> transactions = adminService.getGlobalTransactions();
