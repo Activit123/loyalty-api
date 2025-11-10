@@ -53,7 +53,6 @@ public class SecurityConfig {
             "/api/admin/reporting/leaderboard",
             "/uploads/images/**",
             "/api/admin-setup/create-admin",
-
             // H2 console
             "/h2-console/**"
     };
