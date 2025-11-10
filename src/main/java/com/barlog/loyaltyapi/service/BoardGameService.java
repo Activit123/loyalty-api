@@ -8,6 +8,7 @@ import com.barlog.loyaltyapi.repository.BoardGameRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.util.List;
@@ -24,10 +25,14 @@ public class BoardGameService {
 
     private BoardGameDto convertToDto(BoardGame game) {
         BoardGameDto dto = new BoardGameDto();
+        String imageUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/uploads/images/")
+                .path(game.getImageUrl())
+                .toUriString();
         dto.setId(game.getId());
         dto.setName(game.getName());
         dto.setDescription(game.getDescription());
-        dto.setImageUrl("http://localhost:8090/uploads/images/"+ game.getImageUrl());
+        dto.setImageUrl(imageUrl);
         dto.setPlayers(game.getPlayers());
         dto.setPlayTime(game.getPlayTime());
         dto.setAgeLimit(game.getAgeLimit());
