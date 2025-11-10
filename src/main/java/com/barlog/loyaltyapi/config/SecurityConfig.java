@@ -49,6 +49,7 @@ public class SecurityConfig {
             "/oauth2/**",
             "/api/ai/**",
             "/api/products",
+            "/api/games",
             "/uploads/images/**",
             "/api/admin-setup/create-admin",
 
