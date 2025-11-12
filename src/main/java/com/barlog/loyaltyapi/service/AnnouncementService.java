@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,25 +27,29 @@ public class AnnouncementService {
 
     @Transactional
     public AnnouncementDto createAnnouncement(AnnouncementRequestDto requestDto, MultipartFile imageFile) {
-        String fileName = fileStorageService.storeFile(imageFile);
-        String imageUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/uploads/images/")
-                .path(fileName)
-                .toUriString();
-        
+        // Salvează imaginea pe Cloudinary și obține Public ID-ul
+        String publicId = fileStorageService.storeFile(imageFile);
+
         Announcement announcement = Announcement.builder()
                 .title(requestDto.getTitle())
                 .description(requestDto.getDescription())
-                .imageUrl(imageUrl)
+                .imageUrl(publicId) // *** SALVĂM PUBLIC ID-UL CLOUDINARY ***
                 .build();
-        
+
         return mapToDto(announcementRepository.save(announcement));
     }
-    
+
+    @Transactional
     public void deleteAnnouncement(Long announcementId) {
-        if (!announcementRepository.existsById(announcementId)) {
-            throw new EntityNotFoundException("Anunțul cu ID " + announcementId + " nu a fost găsit.");
+        Announcement announcement = announcementRepository.findById(announcementId)
+                .orElseThrow(() -> new EntityNotFoundException("Anunțul cu ID " + announcementId + " nu a fost găsit."));
+
+        // --- LOGICĂ OPȚIONALĂ PENTRU ȘTERGEREA IMAGINII DE PE CLOUDINARY ---
+        if (announcement.getImageUrl() != null && !announcement.getImageUrl().isEmpty()) {
+            fileStorageService.deleteFile(announcement.getImageUrl());
         }
+        // -------------------------------------------------------------------
+
         announcementRepository.deleteById(announcementId);
     }
 
@@ -55,13 +58,23 @@ public class AnnouncementService {
         dto.setId(announcement.getId());
         dto.setTitle(announcement.getTitle());
         dto.setDescription(announcement.getDescription());
-        dto.setImageUrl(announcement.getImageUrl());
+
+        // *** GENERARE DINAMICĂ A URL-ULUI ***
+        if (announcement.getImageUrl() != null && !announcement.getImageUrl().isEmpty()) {
+            dto.setImageUrl(fileStorageService.getImageUrlFromPublicId(announcement.getImageUrl()));
+        } else {
+            dto.setImageUrl(null);
+        }
+
         dto.setCreatedAt(announcement.getCreatedAt());
         return dto;
     }
+
     public AnnouncementDto getAnnouncementById(Long id) {
         Announcement announcement = announcementRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Anunțul cu ID " + id + " nu a fost găsit."));
         return mapToDto(announcement);
     }
+
+    // NOTĂ: Dacă există o metodă de UPDATE, ar trebui modificată pentru a șterge/suprascrie imaginea dacă este furnizată una nouă.
 }

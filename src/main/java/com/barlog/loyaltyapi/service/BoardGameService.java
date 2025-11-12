@@ -8,7 +8,8 @@ import com.barlog.loyaltyapi.repository.BoardGameRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+// Import-ul ServletUriComponentsBuilder nu mai este necesar
+// import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.util.List;
@@ -19,20 +20,24 @@ import java.util.stream.Collectors;
 public class BoardGameService {
 
     private final BoardGameRepository boardGameRepository;
-    private final FileStorageService fileStorageService; // Reutilizăm pentru imagine
+    private final FileStorageService fileStorageService; // Acum este serviciul Cloudinary
 
     // --- Metode de mapare ---
 
     private BoardGameDto convertToDto(BoardGame game) {
         BoardGameDto dto = new BoardGameDto();
-        String imageUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/uploads/images/")
-                .path(game.getImageUrl())
-                .toUriString();
+
+        // *** GENERARE DINAMICĂ A URL-ULUI ***
+        // Presupunem că game.getImageUrl() stochează acum Public ID-ul Cloudinary
+        String imageUrl = null;
+        if (game.getImageUrl() != null && !game.getImageUrl().isEmpty()) {
+            imageUrl = fileStorageService.getImageUrlFromPublicId(game.getImageUrl());
+        }
+
         dto.setId(game.getId());
         dto.setName(game.getName());
         dto.setDescription(game.getDescription());
-        dto.setImageUrl(imageUrl);
+        dto.setImageUrl(imageUrl); // Setează URL-ul generat
         dto.setPlayers(game.getPlayers());
         dto.setPlayTime(game.getPlayTime());
         dto.setAgeLimit(game.getAgeLimit());
@@ -42,11 +47,11 @@ public class BoardGameService {
         return dto;
     }
 
-    private BoardGame convertToEntity(BoardGameRequestDto dto, String imageUrl) {
+    private BoardGame convertToEntity(BoardGameRequestDto dto, String publicId) {
         return BoardGame.builder()
                 .name(dto.getName())
                 .description(dto.getDescription())
-                .imageUrl(imageUrl)
+                .imageUrl(publicId) // *** SALVĂM PUBLIC ID-UL ***
                 .players(dto.getPlayers())
                 .playTime(dto.getPlayTime())
                 .ageLimit(dto.getAgeLimit())
@@ -61,8 +66,9 @@ public class BoardGameService {
      * Creează un nou joc de societate.
      */
     public BoardGameDto createGame(BoardGameRequestDto requestDto, MultipartFile imageFile) throws IOException {
-        String imageUrl = fileStorageService.storeFile(imageFile);
-        BoardGame game = convertToEntity(requestDto, imageUrl);
+        // Obține Public ID-ul Cloudinary
+        String publicId = fileStorageService.storeFile(imageFile);
+        BoardGame game = convertToEntity(requestDto, publicId);
         BoardGame savedGame = boardGameRepository.save(game);
         return convertToDto(savedGame);
     }
@@ -85,10 +91,15 @@ public class BoardGameService {
 
         // Actualizare imagine, dacă a fost furnizată
         if (imageFile != null && !imageFile.isEmpty()) {
-            // Șterge imaginea veche (opțional, dar recomandat)
 
-            String newImageUrl = fileStorageService.storeFile(imageFile);
-            game.setImageUrl(newImageUrl);
+            // --- LOGICĂ OPȚIONALĂ: ȘTERGE IMAGINEA VECHE ---
+            if (game.getImageUrl() != null && !game.getImageUrl().isEmpty()) {
+                fileStorageService.deleteFile(game.getImageUrl());
+            }
+            // -------------------------------------------------
+
+            String newPublicId = fileStorageService.storeFile(imageFile);
+            game.setImageUrl(newPublicId); // Stochează noul Public ID
         }
 
         BoardGame updatedGame = boardGameRepository.save(game);
@@ -102,10 +113,11 @@ public class BoardGameService {
         BoardGame game = boardGameRepository.findById(gameId)
                 .orElseThrow(() -> new ResourceNotFoundException("Jocul cu ID-ul " + gameId + " nu a fost găsit."));
 
-        // Șterge imaginea din sistemul de fișiere
-        if (game.getImageUrl() != null) {
-
+        // --- LOGICĂ OPȚIONALĂ: ȘTERGE IMAGINEA DE PE CLOUDINARY ---
+        if (game.getImageUrl() != null && !game.getImageUrl().isEmpty()) {
+            fileStorageService.deleteFile(game.getImageUrl());
         }
+        // ----------------------------------------------------------
 
         boardGameRepository.delete(game);
     }

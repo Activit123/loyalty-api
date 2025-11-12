@@ -9,8 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,14 +20,8 @@ public class ProductService {
     private final FileStorageService fileStorageService;
 
     public ProductResponseDto createProduct(ProductRequestDto productDto, MultipartFile imageFile) {
-        // Salvează imaginea și obține numele unic
-        String fileName = fileStorageService.storeFile(imageFile);
-        
-        // Construiește URL-ul complet la care imaginea va fi accesibilă
-        String imageUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/uploads/images/")
-                .path(fileName)
-                .toUriString();
+        // Salvează imaginea pe Cloudinary și obține Public ID-ul
+        String publicId = fileStorageService.storeFile(imageFile);
 
         Product product = Product.builder()
                 .name(productDto.name())
@@ -37,23 +29,20 @@ public class ProductService {
                 .buyPrice(productDto.buyPrice())
                 .claimValue(productDto.claimValue())
                 .stock(productDto.stock())
-                .category(productDto.category()) // Adaugă această linie
-                .imageUrl(imageUrl) // Salvăm URL-ul complet
+                .category(productDto.category())
+                .imageUrl(publicId) // *** STOCARE PUBLIC ID ***
                 .isActive(true)
                 .build();
-        
+
         Product savedProduct = productRepository.save(product);
         return mapToDto(savedProduct);
     }
 
     public List<ProductResponseDto> getAllProducts() {
-        // Folosim noua metodă pentru a prelua doar produsele active
         return productRepository.findByIsActiveTrueOrderByIdDesc().stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
     }
-
-    // Aici pot fi adăugate metode pentru update și delete
 
     protected ProductResponseDto mapToDto(Product product) {
         ProductResponseDto dto = new ProductResponseDto();
@@ -64,10 +53,18 @@ public class ProductService {
         dto.setClaimValue(product.getClaimValue());
         dto.setStock(product.getStock());
         dto.setCategory(product.getCategory());
-        dto.setImageUrl(product.getImageUrl());
+
+        // *** GENERARE DINAMICĂ A URL-ULUI ***
+        if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
+            dto.setImageUrl(fileStorageService.getImageUrlFromPublicId(product.getImageUrl()));
+        } else {
+            dto.setImageUrl(null);
+        }
+
         dto.setActive(product.isActive());
         return dto;
     }
+
     // --- METODĂ NOUĂ PENTRU UPDATE ---
     @Transactional
     public ProductResponseDto updateProduct(Long productId, ProductRequestDto productDto, MultipartFile imageFile) {
@@ -84,12 +81,15 @@ public class ProductService {
 
         // Dacă a fost încărcată o imagine nouă, o actualizăm
         if (imageFile != null && !imageFile.isEmpty()) {
-            String fileName = fileStorageService.storeFile(imageFile);
-            String imageUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                    .path("/uploads/images/")
-                    .path(fileName)
-                    .toUriString();
-            product.setImageUrl(imageUrl);
+            String newPublicId = fileStorageService.storeFile(imageFile);
+
+            // --- LOGICĂ OPȚIONALĂ PENTRU ȘTERGEREA IMAGINII VECHI ---
+            if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
+                fileStorageService.deleteFile(product.getImageUrl());
+            }
+            // --------------------------------------------------------
+
+            product.setImageUrl(newPublicId); // Update DB cu noul Public ID
         }
 
         Product updatedProduct = productRepository.save(product);
@@ -102,9 +102,14 @@ public class ProductService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new EntityNotFoundException("Produsul cu ID-ul " + productId + " nu a fost găsit."));
 
+        // --- LOGICĂ OPȚIONALĂ PENTRU ȘTERGEREA IMAGINII VECHI ---
+        if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
+            fileStorageService.deleteFile(product.getImageUrl());
+        }
+        // --------------------------------------------------------
+
         // În loc să ștergem, setăm produsul ca fiind inactiv
         product.setActive(false);
-
         productRepository.save(product);
     }
 }
