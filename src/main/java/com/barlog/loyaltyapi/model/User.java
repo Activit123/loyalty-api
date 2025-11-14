@@ -9,6 +9,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDate; // <-- IMPORT NOU
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -34,7 +35,7 @@ public class User implements UserDetails {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column // Am șters (nullable = false)
+    @Column
     private String password;
 
     @Column(name = "coins")
@@ -44,28 +45,42 @@ public class User implements UserDetails {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
-    // ADAUGĂ ACEST CÂMP NOU
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AuthProvider authProvider;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
+
     @Column(nullable = false)
+    @Builder.Default
     private Long experience = 0L;
 
     @Column(name = "xp_rate", nullable = false)
+    @Builder.Default
     private Double xpRate = 1.0;
 
     @Column(length = 50, unique = true)
     private String nickname;
 
-    @ManyToOne(fetch = FetchType.EAGER) // <-- ADAUGĂ ACEASTA
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "race_id")
     private Race race;
 
-    @ManyToOne(fetch = FetchType.EAGER) // <-- ADAUGĂ ACEASTA
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "class_type_id")
     private ClassType classType;
+
+    // ============== CÂMPURI NOI PENTRU BONUS XP ==============
+    @Column(name = "consecutive_login_days")
+    @Builder.Default
+    private Integer consecutiveLoginDays = 0;
+
+    @Column(name = "last_login_date")
+    private LocalDate lastLoginDate;
+    // =========================================================
+
     private LocalDateTime updatedAt;
 
     @PrePersist
@@ -78,6 +93,7 @@ public class User implements UserDetails {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(role.name()));
@@ -85,7 +101,6 @@ public class User implements UserDetails {
 
     @Override
     public String getUsername() {
-        // câmpul unic de identificare este emailul în cazul nostru
         return email;
     }
 

@@ -8,4 +8,5 @@ public interface UserService {
     User registerUser(RegisterUserDto registerUserDto);
     User claimReceiptCoins(User currentUser, ClaimRequestDto claimRequest);
     User updateNickname(User currentUser, String newNickname);
+    void updateConsecutiveLoginBonus(User user);
 }
