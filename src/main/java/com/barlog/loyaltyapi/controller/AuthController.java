@@ -68,8 +68,7 @@ public class AuthController {
                 )
         );
 
-        // <<<< APEL NOU: Actualizăm statusul de login consecutiv pentru utilizator >>>>
-        userService.updateConsecutiveLoginBonus(user);
+        // Apelul către logica de bonus A FOST ȘTERS DE AICI
 
         var jwtToken = jwtService.generateToken(user);
         return ResponseEntity.ok(new AuthResponseDto(jwtToken));

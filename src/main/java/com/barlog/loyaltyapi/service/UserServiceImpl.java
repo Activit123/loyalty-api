@@ -10,8 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.DayOfWeek;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -41,61 +39,9 @@ public class UserServiceImpl implements UserService {
                 .authProvider(AuthProvider.LOCAL)
                 .build();
 
-        initializeLoginBonus(newUser);
+        // Apelul către logica de inițializare a bonusului A FOST ȘTERS
 
         return userRepository.save(newUser);
-    }
-
-    @Override
-    @Transactional
-    public void updateConsecutiveLoginBonus(User user) {
-        LocalDate today = LocalDate.now();
-        DayOfWeek dayOfWeek = today.getDayOfWeek();
-
-        if (dayOfWeek == DayOfWeek.MONDAY || dayOfWeek == DayOfWeek.TUESDAY) {
-            return;
-        }
-
-        LocalDate lastLogin = user.getLastLoginDate();
-        if (lastLogin != null && lastLogin.isEqual(today)) {
-            return;
-        }
-
-        int consecutiveDays = user.getConsecutiveLoginDays() != null ? user.getConsecutiveLoginDays() : 0;
-
-        boolean isConsecutiveAfterWeekend = (lastLogin != null && lastLogin.getDayOfWeek() == DayOfWeek.SUNDAY && today.getDayOfWeek() == DayOfWeek.WEDNESDAY && today.minusDays(3).isEqual(lastLogin));
-
-        if ((lastLogin != null && lastLogin.isEqual(today.minusDays(1))) || isConsecutiveAfterWeekend) {
-            user.setConsecutiveLoginDays(consecutiveDays + 1);
-        } else {
-            user.setConsecutiveLoginDays(1);
-        }
-
-        if (user.getConsecutiveLoginDays() >= 8) {
-            user.setXpRate(4.0);
-        } else if (user.getConsecutiveLoginDays() >= 4) {
-            user.setXpRate(2.0);
-        } else {
-            user.setXpRate(1.0);
-        }
-
-        user.setLastLoginDate(today);
-        userRepository.save(user);
-    }
-
-    private void initializeLoginBonus(User user) {
-        LocalDate today = LocalDate.now();
-        DayOfWeek dayOfWeek = today.getDayOfWeek();
-
-        if (dayOfWeek != DayOfWeek.MONDAY && dayOfWeek != DayOfWeek.TUESDAY) {
-            user.setConsecutiveLoginDays(1);
-            user.setLastLoginDate(today);
-            user.setXpRate(1.0);
-        } else {
-            user.setConsecutiveLoginDays(0);
-            user.setXpRate(1.0);
-            user.setLastLoginDate(null);
-        }
     }
 
     @Override
@@ -129,4 +75,6 @@ public class UserServiceImpl implements UserService {
         currentUser.setNickname(newNickname);
         return userRepository.save(currentUser);
     }
+
+
 }

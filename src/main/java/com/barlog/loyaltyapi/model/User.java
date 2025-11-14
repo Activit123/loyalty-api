@@ -9,7 +9,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.time.LocalDate; // <-- IMPORT NOU
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -72,14 +72,14 @@ public class User implements UserDetails {
     @JoinColumn(name = "class_type_id")
     private ClassType classType;
 
-    // ============== CÂMPURI NOI PENTRU BONUS XP ==============
-    @Column(name = "consecutive_login_days")
+    // ============== CÂMPURI MODIFICATE PENTRU BONUS DE ACTIVITATE ==============
+    @Column(name = "consecutive_activity_days")
     @Builder.Default
-    private Integer consecutiveLoginDays = 0;
+    private Integer consecutiveActivityDays = 0;
 
-    @Column(name = "last_login_date")
-    private LocalDate lastLoginDate;
-    // =========================================================
+    @Column(name = "last_activity_date")
+    private LocalDate lastActivityDate;
+    // =======================================================================
 
     private LocalDateTime updatedAt;
 

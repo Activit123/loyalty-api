@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -31,10 +33,12 @@ public class ExperienceService {
     public void addExperienceForReceiptClaim(User user, int coinsClaimed) {
         int baseExperience = coinsClaimed * XP_PER_COIN_CLAIMED_FROM_RECEIPT;
         String description = "XP pentru bon fiscal în valoare de " + coinsClaimed + " monede.";
+        // Presupunem că revendicarea de monede se face la locație, deci este considerată ENTRY_FEE
         addExperience(user, baseExperience, "RECEIPT_CLAIM", ProductCategory.ENTRY_FEE, description);
     }
 
     private void addExperience(User user, int baseAmount, String sourceType, ProductCategory category, String description) {
+        updateConsecutiveActivityBonus(user, category);
         double modifiedAmount = baseAmount;
 
         if (user.getRace() != null) {
@@ -44,9 +48,7 @@ public class ExperienceService {
             modifiedAmount *= getClassBonus(user.getClassType(), category);
         }
 
-        // Aplică bonusul de login (x2, x4) care a fost setat în UserService
         int finalExperience = (int) Math.round(modifiedAmount * user.getXpRate());
-
         if (finalExperience <= 0) return;
 
         user.setExperience(user.getExperience() + finalExperience);
@@ -60,6 +62,56 @@ public class ExperienceService {
                 .createdAt(LocalDateTime.now())
                 .build();
         xpTransactionRepository.save(transaction);
+    }
+
+    @Transactional
+    public void updateConsecutiveActivityBonus(User user, ProductCategory category) {
+        if (category != ProductCategory.ENTRY_FEE) {
+            return;
+        }
+
+        LocalDate today = LocalDate.now();
+        DayOfWeek dayOfWeek = today.getDayOfWeek();
+
+        if (dayOfWeek == DayOfWeek.MONDAY || dayOfWeek == DayOfWeek.TUESDAY) {
+            return;
+        }
+
+        LocalDate lastActivity = user.getLastActivityDate();
+        if (lastActivity != null && lastActivity.isEqual(today)) {
+            return;
+        }
+
+        int consecutiveDays = user.getConsecutiveActivityDays() != null ? user.getConsecutiveActivityDays() : 0;
+
+        // ======================= ÎNCEPUTUL MODIFICĂRII =======================
+        // Verificăm dacă ciclul anterior s-a încheiat (a ajuns la 8 zile)
+        if (consecutiveDays >= 8) {
+            // Dacă da, resetăm la 1 pentru a începe un nou ciclu
+            user.setConsecutiveActivityDays(1);
+        } else {
+            // Altfel, continuăm logica normală de incrementare sau resetare a seriei
+            boolean isConsecutiveAfterWeekend = (lastActivity != null && lastActivity.getDayOfWeek() == DayOfWeek.SUNDAY && today.getDayOfWeek() == DayOfWeek.WEDNESDAY && today.minusDays(3).isEqual(lastActivity));
+
+            if ((lastActivity != null && lastActivity.isEqual(today.minusDays(1))) || isConsecutiveAfterWeekend) {
+                user.setConsecutiveActivityDays(consecutiveDays + 1);
+            } else {
+                user.setConsecutiveActivityDays(1);
+            }
+        }
+        // ======================== SFÂRȘITUL MODIFICĂRII ========================
+
+        // Logica de setare a ratei de XP rămâne aceeași, se va baza pe noua valoare calculată mai sus
+        if (user.getConsecutiveActivityDays() >= 8) {
+            user.setXpRate(4.0);
+        } else if (user.getConsecutiveActivityDays() >= 4) {
+            user.setXpRate(2.0);
+        } else {
+            user.setXpRate(1.0);
+        }
+
+        user.setLastActivityDate(today);
+        // Nu mai este nevoie de userRepository.save(user) aici, deoarece se face în addExperience
     }
 
     private double getRacialBonus(Race race, ProductCategory category) {
