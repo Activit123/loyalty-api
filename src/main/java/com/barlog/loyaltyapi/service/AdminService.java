@@ -1,18 +1,23 @@
 package com.barlog.loyaltyapi.service;
 
-import com.barlog.loyaltyapi.dto.AddCoinsRequestDto;
-import com.barlog.loyaltyapi.dto.AdjustCoinsRequestDto;
-import com.barlog.loyaltyapi.dto.TransactionDetailsDto;
-import com.barlog.loyaltyapi.dto.UserLeaderboardDto;
-import com.barlog.loyaltyapi.dto.UserResponseDto;
+import com.barlog.loyaltyapi.dto.*;
 import com.barlog.loyaltyapi.model.CoinTransaction;
 import com.barlog.loyaltyapi.model.User;
 import com.barlog.loyaltyapi.repository.CoinTransactionRepository;
 import com.barlog.loyaltyapi.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,6 +26,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AdminService {
+
     private final UserRepository userRepository;
     private final CoinTransactionRepository coinTransactionRepository;
     private final LevelService levelService;
@@ -125,7 +131,20 @@ public class AdminService {
                 .collect(Collectors.toList());
     }
 
+
+    @Transactional
+    public void addManualExperienceToUserByEmail(String email, int amount) {
+        // Găsim utilizatorul după email
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Utilizatorul cu emailul " + email + " nu a fost găsit."));
+
+        // Delegăm logica specifică de business (crearea tranzacției, actualizarea totalului)
+        // către serviciul care știe cel mai bine să facă asta.
+        experienceService.addManualExperience(user.getEmail(), amount);
+    }
+
     public UserResponseDto mapUserToDto(User user) {
+
         UserResponseDto dto = new UserResponseDto();
         dto.setId(user.getId());
         dto.setFirstName(user.getFirstName());
@@ -141,4 +160,6 @@ public class AdminService {
         dto.setLevelInfo(levelService.calculateLevelInfo(user.getExperience()));
         return dto;
     }
+
+
 }

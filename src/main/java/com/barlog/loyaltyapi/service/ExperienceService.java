@@ -4,6 +4,7 @@ import com.barlog.loyaltyapi.model.*;
 import com.barlog.loyaltyapi.repository.UserRepository;
 import com.barlog.loyaltyapi.repository.XpTransactionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -138,5 +139,28 @@ public class ExperienceService {
 
     private double getClassBonus(ClassType classType, ProductCategory category) {
         return 1.0;
+    }
+
+    @Transactional
+    public void addManualExperience(String email, int amount) { // Am eliminat parametrul 'description'
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Utilizatorul cu emailul " + email + " nu a fost găsit."));
+
+        if (amount <= 0) {
+            throw new IllegalArgumentException("Suma de XP trebuie să fie pozitivă.");
+        }
+
+        XpTransaction transaction = XpTransaction.builder()
+                .user(user)
+                .amount(amount)
+                .sourceType("ADMIN_MANUAL_ADD")
+                // Am setat o descriere generică pentru claritate în baza de date
+                .description("XP acordat manual de către un administrator.")
+                .createdAt(LocalDateTime.now())
+                .build();
+        xpTransactionRepository.save(transaction);
+
+        user.setExperience(user.getExperience() + amount);
+        userRepository.save(user);
     }
 }

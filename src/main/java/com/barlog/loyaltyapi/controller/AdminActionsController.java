@@ -2,6 +2,7 @@ package com.barlog.loyaltyapi.controller;
 
 import com.barlog.loyaltyapi.dto.AddCoinsRequestDto;
 import com.barlog.loyaltyapi.dto.AdjustCoinsRequestDto;
+import com.barlog.loyaltyapi.dto.ManualXpRequestDto;
 import com.barlog.loyaltyapi.dto.UserResponseDto;
 import com.barlog.loyaltyapi.service.AdminService;
 import jakarta.validation.Valid;
@@ -47,5 +48,12 @@ public class AdminActionsController {
             @Valid @RequestBody AdjustCoinsRequestDto request) {
         UserResponseDto updatedUser = adminService.adjustUserCoins(userId, request);
         return ResponseEntity.ok(updatedUser);
+    }
+    @PostMapping("/users/by-email/add-experience")
+    public ResponseEntity<?> addManualExperienceToUserByEmail(
+            @Valid @RequestBody ManualXpRequestDto requestDto) {
+
+        adminService.addManualExperienceToUserByEmail(requestDto.getEmail(), requestDto.getAmount());
+        return ResponseEntity.ok("XP adăugat cu succes utilizatorului " + requestDto.getEmail());
     }
 }
