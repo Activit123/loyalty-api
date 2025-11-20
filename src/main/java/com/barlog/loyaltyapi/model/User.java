@@ -61,6 +61,7 @@ public class User implements UserDetails {
     @Builder.Default
     private Double xpRate = 1.0;
 
+
     @Column(length = 50, unique = true)
     private String nickname;
 
