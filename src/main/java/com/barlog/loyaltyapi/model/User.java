@@ -9,6 +9,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -51,8 +52,9 @@ public class User implements UserDetails {
     @Column(updatable = false)
     private LocalDateTime createdAt;
     @Column(nullable = false)
-    private Long experience = 0L;
-
+    private Double experience = 0.0; // Inițializare cu Double
+    @Column(name = "avatar_url")
+    private String avatarUrl;
     @Column(name = "xp_rate", nullable = false)
     private Double xpRate = 1.0;
 
@@ -67,7 +69,14 @@ public class User implements UserDetails {
     @JoinColumn(name = "class_type_id")
     private ClassType classType;
     private LocalDateTime updatedAt;
+    // ============== CÂMPURI MODIFICATE PENTRU BONUS DE ACTIVITATE ==============
+    @Column(name = "consecutive_activity_days")
+    @Builder.Default
+    private Integer consecutiveActivityDays = 0;
 
+    @Column(name = "last_activity_date")
+    private LocalDate lastActivityDate = LocalDate.now();
+    // =======================================================================
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

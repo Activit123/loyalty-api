@@ -12,7 +12,9 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor; // Importă adnotarea
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -25,6 +27,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final CoinTransactionRepository coinTransactionRepository;
     private final ExperienceService experienceService;
+    private final FileStorageService fileStorageService;
 
     @Override
     public User registerUser(RegisterUserDto registerUserDto) {
@@ -47,12 +50,14 @@ public class UserServiceImpl implements UserService {
                 .role(Role.ROLE_USER)
                 .authProvider(AuthProvider.LOCAL)
                 .coins(0)
-                .experience((long) 0.0f)
                 .xpRate(1.0)
+                .experience(0.0)
                 .build();
 
         return userRepository.save(newUser);
     }
+
+
 
     @Override // 3. Adaugă @Override pentru a asigura implementarea corectă a interfeței
     @Transactional
@@ -81,6 +86,26 @@ public class UserServiceImpl implements UserService {
             throw new IllegalStateException("Acest nickname este deja folosit.");
         }
         currentUser.setNickname(newNickname);
+        return userRepository.save(currentUser);
+    }
+    @Override
+    @Transactional
+    public User updateAvatar(User currentUser, MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("Fișierul nu poate fi gol.");
+        }
+
+        // 1. Șterge avatarul vechi (dacă există)
+        if (currentUser.getAvatarUrl() != null && !currentUser.getAvatarUrl().isEmpty()) {
+            fileStorageService.deleteFile(currentUser.getAvatarUrl());
+        }
+
+        // 2. Încarcă fișierul nou și obține Public ID-ul
+        String newPublicId = fileStorageService.storeFile(file);
+
+        // 3. Salvează noul ID-ul în baza de date
+        currentUser.setAvatarUrl(newPublicId);
+
         return userRepository.save(currentUser);
     }
 }

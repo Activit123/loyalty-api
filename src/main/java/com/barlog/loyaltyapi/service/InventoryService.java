@@ -60,7 +60,7 @@ public class InventoryService {
     }
 
     // Metodă ajutătoare de mapare
-    private InventoryItemDto mapToDto(UserInventoryItem item) {
+    public InventoryItemDto mapToDto(UserInventoryItem item) {
         InventoryItemDto dto = new InventoryItemDto();
         dto.setId(item.getId());
         dto.setClaimUid(item.getClaimUid());

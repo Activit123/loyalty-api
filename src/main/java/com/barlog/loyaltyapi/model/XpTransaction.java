@@ -18,7 +18,7 @@ public class XpTransaction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "user_id", nullable = false) private User user;
-    @Column(nullable = false) private Integer amount;
+    @Column(nullable = false) private Double amount;
     @Column(name = "source_type", nullable = false) private String sourceType;
     private String description;
     @Column(name = "created_at") private LocalDateTime createdAt;

@@ -11,9 +11,11 @@ import lombok.RequiredArgsConstructor; // Importăm adnotarea
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/users")
@@ -36,7 +38,18 @@ public class UserController {
 
         return ResponseEntity.ok(responseDto);
     }
+    // ADĂUGAT: Endpoint pentru upload avatar
+    @PatchMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<UserResponseDto> updateAvatar(
+            Authentication authentication,
+            @RequestPart("image") MultipartFile imageFile) {
 
+        User currentUser = (User) authentication.getPrincipal();
+        User updatedUser = userService.updateAvatar(currentUser, imageFile);
+
+        // Mapăm utilizatorul la DTO pentru a trimite noul URL către client
+        return ResponseEntity.ok(adminService.mapUserToDto(updatedUser));
+    }
     @PostMapping("/me/claim-receipt")
     public ResponseEntity<UserResponseDto> claimReceipt(
             Authentication authentication,

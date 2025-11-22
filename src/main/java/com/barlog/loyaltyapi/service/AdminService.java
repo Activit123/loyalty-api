@@ -11,6 +11,7 @@ import com.barlog.loyaltyapi.repository.CoinTransactionRepository;
 import com.barlog.loyaltyapi.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class AdminService {
     private final LevelService levelService;
     private final ExperienceService experienceService;
     private final CharacterService characterService;
+    private final FileStorageService fileStorageService; // ASIGURĂ-TE CĂ ACEASTA E INJECTATĂ
     public UserResponseDto getUserById(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
@@ -77,7 +79,16 @@ public class AdminService {
         User updatedUser = userRepository.save(user);
         return mapUserToDto(updatedUser);
     }
+    @Transactional
+    public void addManualExperienceToUserByEmail(String email, int amount) {
+        // Găsim utilizatorul după email
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Utilizatorul cu emailul " + email + " nu a fost găsit."));
 
+        // Delegăm logica specifică de business (crearea tranzacției, actualizarea totalului)
+        // către serviciul care știe cel mai bine să facă asta.
+        experienceService.addManualExperience(user.getEmail(), amount);
+    }
     @Transactional
     public UserResponseDto adjustUserCoins(Long userId, AdjustCoinsRequestDto request) {
         User user = userRepository.findById(userId)
@@ -93,7 +104,7 @@ public class AdminService {
      * Returnează top 10 utilizatori pe baza punctelor de loialitate (coins).
      */
     public List<UserLeaderboardDto> getLeaderboard() {
-        List<User> topUsers = userRepository.findTop10ByOrderByCoinsDesc();
+        List<User> topUsers = userRepository.findTop10ByOrderByExperienceDesc();
         return topUsers.stream()
                 .map(user -> new UserLeaderboardDto(
                         user.getFirstName(),
@@ -133,12 +144,20 @@ public class AdminService {
         dto.setEmail(user.getEmail());
         dto.setCoins(user.getCoins());
         dto.setRole(user.getRole());
+        dto.setXpRate(user.getXpRate());
         dto.setCreatedAt(user.getCreatedAt());
         dto.setNickname(user.getNickname());
         dto.setExperience(user.getExperience());
+        dto.setConsecutiveActivityDays(user.getConsecutiveActivityDays());
         dto.setRace(user.getRace() != null ? characterService.mapToRaceDto(user.getRace()) : null);
         dto.setClassType(user.getClassType() != null ? characterService.mapToClassTypeDto(user.getClassType()) : null);
         dto.setLevelInfo(levelService.calculateLevelInfo(user.getExperience()));
+        // NOU: Maparea Avatarului
+        if (user.getAvatarUrl() != null && !user.getAvatarUrl().isEmpty()) {
+            dto.setAvatarUrl(fileStorageService.getImageUrlFromPublicId(user.getAvatarUrl()));
+        } else {
+            dto.setAvatarUrl(null); // Sau URL-ul unui avatar implicit
+        }
         return dto;
     }
 }

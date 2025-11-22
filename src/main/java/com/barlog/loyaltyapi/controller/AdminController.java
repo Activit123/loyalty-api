@@ -54,7 +54,7 @@ public class AdminController {
                 .role(Role.ROLE_ADMIN) // Setăm rolul ca ADMIN
                 .authProvider(AuthProvider.LOCAL)
                 .coins(0)
-                .experience((long) 0.0f)
+                .experience(0.0)
                 .xpRate(1.0)
                 .build();
 

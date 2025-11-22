@@ -16,9 +16,12 @@ public class UserResponseDto {
     private Role role;
     private LocalDateTime createdAt;
     private String nickname;
-    private Long experience;
+    private Integer consecutiveActivityDays;
+    private Double experience;
+    private Double xpRate;
     private RaceDto race; // Vom trimite obiectul complet
     private ClassTypeDto classType;
     private LevelInfoDto levelInfo;
+    private String avatarUrl;
 
 }
