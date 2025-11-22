@@ -25,6 +25,7 @@ public class ShopService {
     private final ShopPurchaseRepository shopPurchaseRepository;
     private final ExperienceService experienceService;
     private final UserInventoryItemRepository userInventoryItemRepository; // Injectează noul repo
+    private final QuestService questService;
 
     @Transactional // Asigură că întreaga operațiune este atomică
     public User purchaseProduct(Long productId, User currentUser) {
@@ -83,7 +84,39 @@ public class ShopService {
         // Salvăm entitățile modificate
         productRepository.save(product);
         experienceService.addExperienceForShopPurchase(currentUser, product.getBuyPrice(), product.getCategory());
+        questService.updateQuestProgress(
+                currentUser,
+                QuestType.BUY_SPECIFIC_PRODUCT, // Folosim BUY_SPECIFIC_PRODUCT ca event
+                product.getCategory(),
+                product.getId(),
+                1.0 // Achiziția contează ca 1 unitate
+        );
         return userRepository.save(currentUser);
+    }
+
+    @Transactional
+    public void addCoinsToUser(User user, int coins, String description) {
+        if (coins <= 0) return;
+
+        // Actualizează balanța utilizatorului
+        user.setCoins(user.getCoins() + coins);
+
+        // Crează înregistrarea în istoric
+        CoinTransaction transaction = CoinTransaction.builder()
+                .user(user)
+                .amount(coins)
+                .description(description)
+                // Folosește un tip de tranzacție diferit de ADMIN_ADD/ADMIN_REMOVE
+                .transactionType("QUEST_REWARD")
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        coinTransactionRepository.save(transaction);
+        userRepository.save(user);
+
+        // Opțional: Adaugă XP pentru monedele acordate (dacă nu e deja făcut în QuestService/ExperienceService)
+        // experienceService.addExperienceForReceiptClaim(user, coins);
+        // Notă: QuestService se ocupă de XP, deci nu e nevoie aici.
     }
     public List<MatchedProductDto> matchReceiptItems(ReceiptResponseDto receiptData) {
         // 1. Preluăm toate produsele active din magazinul nostru

@@ -31,6 +31,13 @@ public class InventoryService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
+    public UserInventoryItem saveInventoryItem(UserInventoryItem item) {
+        // Obiectul UserInventoryItem trebuie să aibă deja toate câmpurile setate (user, product, status etc.)
+        // @PrePersist se va ocupa de claimUid și createdAt.
+        return inventoryRepository.save(item);
+    }
+
     // Metoda centrală pentru revendicarea unui item de către admin
     @Transactional
     public InventoryItemDto claimItem(UUID claimUid) {

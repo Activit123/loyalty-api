@@ -51,7 +51,7 @@ public class ExperienceService {
     }
 
     // Metoda centrală și privată care calculează și adaugă experiența (MODIFICATĂ PENTRU DOUBLE)
-    private void addExperience(User user, double baseAmount, String sourceType, ProductCategory category, String description) {
+    protected void addExperience(User user, double baseAmount, String sourceType, ProductCategory category, String description) {
         updateConsecutiveActivityBonus(user, category);
         double modifiedAmount = baseAmount;
 

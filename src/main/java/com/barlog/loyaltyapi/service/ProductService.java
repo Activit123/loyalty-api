@@ -9,7 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,6 +40,28 @@ public class ProductService {
         return mapToDto(savedProduct);
     }
 
+
+    // Metodă nouă pentru a găsi un produs pe baza numelui exact
+    public Optional<Product> findProductByName(String name) {
+        return productRepository.findByName(name); // Presupune că ProductRepository are findByName
+    }
+
+    // NOU: Metodă pentru a găsi un produs pe baza descrierii formatate (pentru Admin/Quest)
+    public Product matchProductByFormattedDescription(String description) {
+        if (description == null || description.isEmpty()) {
+            return null;
+        }
+
+        // 1. Extrage Numele Produsului (ex: de la "Revendicare: Weissbier (Cearfisa)" la "Weissbier (Cearfisa)")
+        String productName = description.trim();
+        if (productName.toLowerCase().startsWith("revendicare:")) {
+            productName = productName.substring("revendicare:".length()).trim();
+        }
+
+        // 2. Caută produsul după numele exact
+        return (Product) productRepository.findByName(productName)
+                .orElse(null); // Returnează null dacă nu s-a găsit o potrivire exactă
+    }
     public List<ProductResponseDto> getAllProducts() {
         return productRepository.findByIsActiveTrueOrderByIdDesc().stream()
                 .map(this::mapToDto)
