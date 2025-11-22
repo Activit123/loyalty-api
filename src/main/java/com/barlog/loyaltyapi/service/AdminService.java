@@ -104,20 +104,29 @@ public class AdminService {
      * Returnează top 10 utilizatori pe baza punctelor de loialitate (coins).
      */
     public List<UserLeaderboardDto> getLeaderboard() {
+        // CORECTAT: Folosește metoda corectă de sortare
         List<User> topUsers = userRepository.findTop10ByOrderByExperienceDesc();
+
         return topUsers.stream()
-                .map(user -> new UserLeaderboardDto(
-                        user.getFirstName(),
-                        user.getLastName(),
-                        user.getEmail(),
-                        user.getCoins(),
-                        user.getExperience(),
-                        user.getNickname(),
-                        user.getAvatarUrl(),
-                        levelService.calculateLevelInfo(user.getExperience())
+                .map(user -> {
 
+                    // NOU: Logica de generare Avatar URL
+                    String avatarUrl = null;
+                    if (user.getAvatarUrl() != null && !user.getAvatarUrl().isEmpty()) {
+                        avatarUrl = fileStorageService.getImageUrlFromPublicId(user.getAvatarUrl());
+                    }
 
-                ))
+                    return new UserLeaderboardDto(
+                            user.getFirstName(),
+                            user.getLastName(),
+                            user.getEmail(),
+                            user.getCoins(),
+                            user.getExperience(), // Tipul este Double
+                            user.getNickname(),
+                            avatarUrl, // NOU: Avatar URL
+                            levelService.calculateLevelInfo(user.getExperience())
+                    );
+                })
                 .collect(Collectors.toList());
     }
 
