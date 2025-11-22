@@ -113,6 +113,7 @@ public class AdminService {
                         user.getCoins(),
                         user.getExperience(),
                         user.getNickname(),
+                        user.getAvatarUrl(),
                         levelService.calculateLevelInfo(user.getExperience())
 
 

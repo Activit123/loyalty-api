@@ -16,5 +16,6 @@ public class UserLeaderboardDto {
     private Integer coins; // Am schimbat din loyaltyPoints în coins
     private Double experience;
     private String nickname;
+    private String avatarUrl;
     private LevelInfoDto levelInfo;
 }
