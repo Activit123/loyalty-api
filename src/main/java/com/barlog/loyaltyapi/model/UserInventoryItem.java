@@ -25,7 +25,7 @@ public class UserInventoryItem {
     private Product product;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "purchase_id", nullable = false, unique = true)
+    @JoinColumn(name = "purchase_id", nullable = true, unique = true)
     private ShopPurchase purchase;
 
     @Column(nullable = false)
