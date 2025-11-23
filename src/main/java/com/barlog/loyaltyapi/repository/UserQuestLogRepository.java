@@ -5,6 +5,7 @@ package com.barlog.loyaltyapi.repository;
 import com.barlog.loyaltyapi.model.QuestStatus;
 import com.barlog.loyaltyapi.model.User;
 import com.barlog.loyaltyapi.model.UserQuestLog;
+import jakarta.persistence.QueryHint;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param; // Import necesar
@@ -38,10 +39,11 @@ public interface UserQuestLogRepository extends JpaRepository<UserQuestLog, Long
             "WHERE ql.user = :user AND ql.status IN ('ACTIVE', 'COMPLETED', 'REWARDED')")
     List<UserQuestLog> findAllQuestsWithProgressByUserId(@Param("user") User user);
 
+    // CORECTAT: Am eliminat JOIN FETCH pe ql.criterionProgress (colecția de tip List de pe UserQuestLog)
     @Query("SELECT DISTINCT ql FROM UserQuestLog ql " +
             "JOIN FETCH ql.quest q " +
             "LEFT JOIN FETCH q.criteria qc " +
-            "LEFT JOIN FETCH ql.criterionProgress p " +
+            "LEFT JOIN FETCH ql.criterionProgress p " + // Acum e Set
             "WHERE ql.user = :user AND ql.status IN ('ACTIVE', 'COMPLETED', 'REWARDED')")
     List<UserQuestLog> findAllByUserAndStatusInForDisplay(@Param("user") User user);
 }

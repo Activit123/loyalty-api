@@ -34,8 +34,7 @@ public class UserCriterionProgress {
     // Cheia unică pentru a asigura că nu avem duplicate la inițiere
     @Column(name = "unique_key", nullable = false)
     private String uniqueKey; 
-    
-    @PrePersist
+
     private void setUniqueKey() {
         // Această logică va fi mutată în Service, dar o păstrăm ca referință
         // pentru a ne asigura că key-ul există înainte de save.

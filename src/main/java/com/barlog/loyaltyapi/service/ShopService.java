@@ -94,30 +94,7 @@ public class ShopService {
         return userRepository.save(currentUser);
     }
 
-    @Transactional
-    public void addCoinsToUser(User user, int coins, String description) {
-        if (coins <= 0) return;
 
-        // Actualizează balanța utilizatorului
-        user.setCoins(user.getCoins() + coins);
-
-        // Crează înregistrarea în istoric
-        CoinTransaction transaction = CoinTransaction.builder()
-                .user(user)
-                .amount(coins)
-                .description(description)
-                // Folosește un tip de tranzacție diferit de ADMIN_ADD/ADMIN_REMOVE
-                .transactionType("QUEST_REWARD")
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        coinTransactionRepository.save(transaction);
-        userRepository.save(user);
-
-        // Opțional: Adaugă XP pentru monedele acordate (dacă nu e deja făcut în QuestService/ExperienceService)
-        // experienceService.addExperienceForReceiptClaim(user, coins);
-        // Notă: QuestService se ocupă de XP, deci nu e nevoie aici.
-    }
     public List<MatchedProductDto> matchReceiptItems(ReceiptResponseDto receiptData) {
         // 1. Preluăm toate produsele active din magazinul nostru
         List<Product> allShopProducts = productRepository.findAll(); // Poți adăuga o metodă findByIsActive(true)

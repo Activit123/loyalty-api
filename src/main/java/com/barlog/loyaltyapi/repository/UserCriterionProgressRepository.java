@@ -1,5 +1,6 @@
 package com.barlog.loyaltyapi.repository;
 
+import com.barlog.loyaltyapi.model.QuestCriterion;
 import com.barlog.loyaltyapi.model.UserCriterionProgress;
 import com.barlog.loyaltyapi.model.UserQuestLog;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,4 +13,5 @@ public interface UserCriterionProgressRepository extends JpaRepository<UserCrite
     
     // Preia toate progresurile ACTIVE pentru un Quest Log specific
     List<UserCriterionProgress> findByUserQuestLogAndIsCompletedFalse(UserQuestLog log);
+
 }

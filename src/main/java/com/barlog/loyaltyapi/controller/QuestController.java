@@ -48,6 +48,23 @@ public class QuestController {
        return ResponseEntity.ok(questService.getUserQuestLog(currentUser));
 
     }
+    // NOU: Endpoint pentru Actualizare (Modificare) Quest
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/admin/quests/{questId}")
+    public ResponseEntity<QuestDetailsDto> updateQuest(
+            @PathVariable Long questId,
+            @Valid @RequestBody QuestCreateDto updateDto) {
+
+        QuestDetailsDto questDetails = questService.updateQuest(questId, updateDto);
+        return ResponseEntity.ok(questDetails);
+    }
+    // NOU: Endpoint pentru Ștergere/Dezactivare
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/admin/quests/{questId}")
+    public ResponseEntity<Void> deleteQuest(@PathVariable Long questId) {
+        questService.deactivateQuest(questId);
+        return ResponseEntity.noContent().build(); // Răspuns 204 No Content
+    }
 
     // --- 3. User: Revendicare Recompensă ---
 

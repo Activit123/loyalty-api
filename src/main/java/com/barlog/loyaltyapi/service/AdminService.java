@@ -191,6 +191,7 @@ public class AdminService {
         dto.setRace(user.getRace() != null ? characterService.mapToRaceDto(user.getRace()) : null);
         dto.setClassType(user.getClassType() != null ? characterService.mapToClassTypeDto(user.getClassType()) : null);
         dto.setLevelInfo(levelService.calculateLevelInfo(user.getExperience()));
+        questService.assignActiveQuests(user);
         // NOU: Maparea Avatarului
         if (user.getAvatarUrl() != null && !user.getAvatarUrl().isEmpty()) {
             dto.setAvatarUrl(fileStorageService.getImageUrlFromPublicId(user.getAvatarUrl()));
