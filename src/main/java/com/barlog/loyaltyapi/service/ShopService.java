@@ -27,7 +27,7 @@ public class ShopService {
     private final UserInventoryItemRepository userInventoryItemRepository; // Injectează noul repo
     private final QuestService questService;
 
-    @Transactional // Asigură că întreaga operațiune este atomică
+    @Transactional
     public User purchaseProduct(Long productId, User currentUser) {
         // 1. Găsim produsul și verificăm dacă este valid
         Product product = productRepository.findById(productId)
@@ -45,8 +45,12 @@ public class ShopService {
             throw new IllegalStateException("Fonduri insuficiente pentru a cumpăra acest produs.");
         }
 
+        // NOUA VALIDARE PENTRU PREȚ NEGATIV
+        if (product.getBuyPrice() < 0) {
+            throw new IllegalStateException("Eroare de configurare: Prețul produsului nu poate fi negativ.");
+        }
+
         // 3. Procesăm tranzacția
-        // Scădem costul din balanța utilizatorului
         currentUser.setCoins(currentUser.getCoins() - product.getBuyPrice());
 
         // Decrementăm stocul dacă nu este nelimitat
@@ -55,17 +59,15 @@ public class ShopService {
         }
 
         // 4. Creăm înregistrări în istoric
-        // Istoricul general de monede
         CoinTransaction transaction = CoinTransaction.builder()
                 .user(currentUser)
-                .amount(-product.getBuyPrice()) // Sumă negativă
+                .amount(-product.getBuyPrice())
                 .description("Cumpărat produs: " + product.getName())
                 .transactionType("SHOP_PURCHASE")
                 .createdAt(LocalDateTime.now())
                 .build();
         coinTransactionRepository.save(transaction);
 
-        // Istoricul specific de achiziții din magazin
         ShopPurchase purchase = ShopPurchase.builder()
                 .user(currentUser)
                 .product(product)
@@ -76,24 +78,20 @@ public class ShopService {
         UserInventoryItem newItem = UserInventoryItem.builder()
                 .user(currentUser)
                 .product(product)
+                // NOU: Itemele cumpărate trebuie să aibă purchase_id
                 .purchase(savedPurchase)
                 .status("IN_INVENTORY")
-                // claimUid este generat automat de @PrePersist
                 .build();
         userInventoryItemRepository.save(newItem);
+
         // Salvăm entitățile modificate
         productRepository.save(product);
         experienceService.addExperienceForShopPurchase(currentUser, product.getBuyPrice(), product.getCategory());
-        questService.updateQuestProgress(
-                currentUser,
-                QuestType.BUY_SPECIFIC_PRODUCT, // Folosim BUY_SPECIFIC_PRODUCT ca event
-                product.getCategory(),
-                product.getId(),
-                1.0 // Achiziția contează ca 1 unitate
-        );
+
+        // ELIMINAT: Apelul questService.updateQuestProgress(...)
+
         return userRepository.save(currentUser);
     }
-
 
     public List<MatchedProductDto> matchReceiptItems(ReceiptResponseDto receiptData) {
         // 1. Preluăm toate produsele active din magazinul nostru
