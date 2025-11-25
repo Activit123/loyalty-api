@@ -13,5 +13,5 @@ public interface UserCriterionProgressRepository extends JpaRepository<UserCrite
     
     // Preia toate progresurile ACTIVE pentru un Quest Log specific
     List<UserCriterionProgress> findByUserQuestLogAndIsCompletedFalse(UserQuestLog log);
-
+    void deleteByCriterion(QuestCriterion criterion);
 }

@@ -1,20 +1,21 @@
 package com.barlog.loyaltyapi.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
-@Data
-@Builder
+@Getter
+@Setter
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
 @Table(name = "user_criterion_progress")
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class UserCriterionProgress {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -31,17 +32,6 @@ public class UserCriterionProgress {
     @Column(nullable = false)
     private Boolean isCompleted = false;
 
-    // Cheia unică pentru a asigura că nu avem duplicate la inițiere
-    @Column(name = "unique_key", nullable = false)
-    private String uniqueKey; 
-
-    private void setUniqueKey() {
-        // Această logică va fi mutată în Service, dar o păstrăm ca referință
-        // pentru a ne asigura că key-ul există înainte de save.
-        if (this.userQuestLog != null && this.criterion != null) {
-             this.uniqueKey = this.userQuestLog.getId() + "_" + this.criterion.getId();
-        } else if (this.uniqueKey == null) {
-             this.uniqueKey = java.util.UUID.randomUUID().toString(); // Fallback
-        }
-    }
+    @Column(name = "unique_key", nullable = false, unique = true)
+    private String uniqueKey;
 }

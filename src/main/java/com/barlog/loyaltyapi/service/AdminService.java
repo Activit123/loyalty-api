@@ -30,7 +30,7 @@ public class AdminService {
     private final ExperienceService experienceService;
     private final CharacterService characterService;
     private final FileStorageService fileStorageService; // ASIGURĂ-TE CĂ ACEASTA E INJECTATĂ
-    private final QuestService questService;
+
     private final ProductService productService;
     public UserResponseDto getUserById(Long userId) {
         User user = userRepository.findById(userId)
@@ -43,31 +43,8 @@ public class AdminService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + email));
         experienceService.addExperienceForReceiptClaim(user,request.amount());
-        Product matchedProduct = productService.matchProductByFormattedDescription(request.description());
-
-        if (matchedProduct != null) {
-            // Cazul A: Produs Găsit - Loghează ca achiziție de produs
 
 
-            questService.updateQuestProgress(
-                    user,
-                    QuestType.BUY_SPECIFIC_PRODUCT,
-                    matchedProduct.getCategory(),
-                    matchedProduct.getId(),
-                    1.0
-            );
-        } else {
-            // Cazul B: Produs Nespecificat - Loghează ca un simplu câștig de monede
-
-
-            questService.updateQuestProgress(
-                    user,
-                    QuestType.GAIN_COINS,
-                    null,
-                    null,
-                    (double) request.amount()
-            );
-        }
         return processCoinAddition(user, request);
     }
     // --- Metodă Nouă ---
@@ -191,7 +168,6 @@ public class AdminService {
         dto.setRace(user.getRace() != null ? characterService.mapToRaceDto(user.getRace()) : null);
         dto.setClassType(user.getClassType() != null ? characterService.mapToClassTypeDto(user.getClassType()) : null);
         dto.setLevelInfo(levelService.calculateLevelInfo(user.getExperience()));
-        questService.assignActiveQuests(user);
         // NOU: Maparea Avatarului
         if (user.getAvatarUrl() != null && !user.getAvatarUrl().isEmpty()) {
             dto.setAvatarUrl(fileStorageService.getImageUrlFromPublicId(user.getAvatarUrl()));

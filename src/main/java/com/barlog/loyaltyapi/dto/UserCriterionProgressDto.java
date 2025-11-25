@@ -5,6 +5,7 @@ import lombok.Data;
 @Data
 public class UserCriterionProgressDto {
     private Long criterionId;
+    private String criterionType; // <--- CÂMP NOU NECESAR
     private String criterionDescription; // Ex: "Cumpără 2 Pale Ale"
     private Double currentProgress;
     private Double requiredAmount;

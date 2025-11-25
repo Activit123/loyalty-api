@@ -46,21 +46,34 @@ public class ProductService {
         return productRepository.findByName(name); // Presupune că ProductRepository are findByName
     }
 
-    // NOU: Metodă pentru a găsi un produs pe baza descrierii formatate (pentru Admin/Quest)
     public Product matchProductByFormattedDescription(String description) {
         if (description == null || description.isEmpty()) {
             return null;
         }
 
-        // 1. Extrage Numele Produsului (ex: de la "Revendicare: Weissbier (Cearfisa)" la "Weissbier (Cearfisa)")
         String productName = description.trim();
-        if (productName.toLowerCase().startsWith("revendicare:")) {
+        String lowerDesc = productName.toLowerCase();
+
+        // 1. Verifică formatul de Revendicare (Admin Scanner / Bar)
+        if (lowerDesc.startsWith("revendicare:")) {
             productName = productName.substring("revendicare:".length()).trim();
         }
+        // 2. NOU: Verifică formatul de Cumpărare (Shop App)
+        // Verificăm și varianta cu diacritice și fără, pentru siguranță
+        else if (lowerDesc.startsWith("cumpărat produs:")) {
+            productName = productName.substring("Cumpărat produs:".length()).trim();
+        }
+        else if (lowerDesc.startsWith("cumparat produs:")) {
+            productName = productName.substring("Cumparat produs:".length()).trim();
+        }
+        else {
+            // Nu este o tranzacție legată de un produs
+            return null;
+        }
 
-        // 2. Caută produsul după numele exact
-        return (Product) productRepository.findByName(productName)
-                .orElse(null); // Returnează null dacă nu s-a găsit o potrivire exactă
+        // 3. Caută produsul după numele exact extras
+        return productRepository.findByName(productName)
+                .orElse(null);
     }
     public List<ProductResponseDto> getAllProducts() {
         return productRepository.findByIsActiveTrueOrderByIdDesc().stream()

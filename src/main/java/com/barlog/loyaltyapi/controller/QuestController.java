@@ -40,7 +40,7 @@ public class QuestController {
 
     // --- 2. User: Vizualizare Log ---
     
-    @PreAuthorize("isAuthenticated()")
+
     @GetMapping("/quests/log")
     public ResponseEntity<List<UserQuestLogDto>> getUserQuestLog(Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
@@ -62,9 +62,10 @@ public class QuestController {
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/admin/quests/{questId}")
     public ResponseEntity<Void> deleteQuest(@PathVariable Long questId) {
-        questService.deactivateQuest(questId);
-        return ResponseEntity.noContent().build(); // Răspuns 204 No Content
+        questService.deleteQuest(questId);
+        return ResponseEntity.noContent().build();
     }
+
 
     // --- 3. User: Revendicare Recompensă ---
 

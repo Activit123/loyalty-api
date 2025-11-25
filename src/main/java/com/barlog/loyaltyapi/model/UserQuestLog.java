@@ -1,24 +1,25 @@
 package com.barlog.loyaltyapi.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
 @Table(name = "user_quest_log")
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class UserQuestLog {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -31,15 +32,15 @@ public class UserQuestLog {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private QuestStatus status; // ACTIVE, COMPLETED, REWARDED
+    private QuestStatus status;
 
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
     @Column(name = "completion_date")
     private LocalDateTime completionDate;
-    
-    // Relație cu progresul pentru fiecare criteriu
+
     @OneToMany(mappedBy = "userQuestLog", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<UserCriterionProgress> criterionProgress; 
+    @Builder.Default
+    private Set<UserCriterionProgress> criterionProgress = new HashSet<>();
 }

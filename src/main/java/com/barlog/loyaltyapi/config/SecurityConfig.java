@@ -49,6 +49,7 @@ public class SecurityConfig {
             "/oauth2/**",
             "/api/ai/**",
             "/api/trade/**",
+            "api/quests/log",
             "/api/products",
             "/api/games",
             "/api/admin/reporting/leaderboard",
