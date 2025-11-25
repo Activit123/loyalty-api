@@ -2,13 +2,8 @@ package com.barlog.loyaltyapi.service;
 
 import com.barlog.loyaltyapi.dto.*;
 import com.barlog.loyaltyapi.exception.ResourceNotFoundException;
-import com.barlog.loyaltyapi.model.CoinTransaction;
-import com.barlog.loyaltyapi.model.Trade;
+import com.barlog.loyaltyapi.model.*;
 
-import com.barlog.loyaltyapi.model.TradeOfferItemType;
-
-import com.barlog.loyaltyapi.model.User;
-import com.barlog.loyaltyapi.model.UserInventoryItem;
 import com.barlog.loyaltyapi.repository.*;
 import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityManager;
@@ -34,7 +29,7 @@ public class TradeService {
     private final AdminService adminService;
     private final InventoryService inventoryService;
     private final EntityManager entityManager;
-
+    private final UserNotificationService notificationService; // INJECTAT
     // --- Helpers ---
     private User findUserByIdentifier(String identifier) {
         return userRepository.findByEmail(identifier)
@@ -186,7 +181,13 @@ public class TradeService {
         Trade savedTrade = tradeRepository.save(newTrade);
 
         saveOfferItems(savedTrade, initiator, request.getOfferedCoins(), request.getOfferedInventoryItemIds());
-
+        User rec = findUserByIdentifier(request.getRecipientIdentifier());
+        notificationService.notifyUser(
+                rec,
+                initiator.getNickname() + " vrea să facă un schimb cu tine!",
+                NotificationType.TRADE_OFFER,
+                "/trade"
+        );
         return getTradeDetails(savedTrade.getId());
     }
 
@@ -206,6 +207,19 @@ public class TradeService {
 
         // 2. Determină rolul și actualizează Agreed
         boolean isInitiator = trade.getInitiator().equals(user);
+        User partner = trade.getInitiator().equals(user) ? trade.getRecipient() : trade.getInitiator();
+
+        // NOTIFICARE:
+        String message = request.isAcceptsFinalOffer()
+                ? user.getNickname() + " a ACCEPTAT oferta ta de schimb!"
+                : user.getNickname() + " a actualizat oferta de schimb.";
+
+        notificationService.notifyUser(
+                partner,
+                message,
+                NotificationType.TRADE_UPDATE,
+                "/trade"
+        );
 
         if (isInitiator) {
             trade.setInitiatorAgreed(request.isAcceptsFinalOffer());
@@ -229,6 +243,11 @@ public class TradeService {
         }
 
         tradeRepository.save(trade);
+        if (trade.getStatus() == TradeStatus.ACCEPTED) {
+            // Opțional: Notifică ambii că e gata de finalizare
+            notificationService.notifyUser(user, "Trade-ul este ACCEPTAT! Poți finaliza schimbul.", NotificationType.TRADE_UPDATE, "/trade");
+            notificationService.notifyUser(partner, "Trade-ul este ACCEPTAT! Poți finaliza schimbul.", NotificationType.TRADE_UPDATE, "/trade");
+        }
         return getTradeDetails(tradeId);
     }
 
@@ -247,6 +266,15 @@ public class TradeService {
         offerItemRepository.deleteByTradeAndUser(trade, trade.getInitiator());
         offerItemRepository.deleteByTradeAndUser(trade, trade.getRecipient());
         trade.setStatus(TradeStatus.CANCELED);
+        User partner = trade.getInitiator().equals(user) ? trade.getRecipient() : trade.getInitiator();
+
+        // NOTIFICARE:
+        notificationService.notifyUser(
+                partner,
+                user.getNickname() + " a ANULAT schimbul.",
+                NotificationType.TRADE_UPDATE,
+                "/trade"
+        );
         tradeRepository.save(trade);
     }
 
@@ -279,7 +307,17 @@ public class TradeService {
 
         trade.setStatus(TradeStatus.COMPLETED);
         tradeRepository.save(trade);
+        TradeDetailsDto detail = getTradeDetails(tradeId);
+        UserResponseDto partner = detail.getInitiator().getId().equals(user.getId()) ? detail.getRecipient() : detail.getInitiator(); // Atenție: aici lucrezi cu DTO sau Entități? getTradeDetails returnează DTO, dar procesarea se face pe Entități. E mai sigur să iei partenerul din entitatea 'trade'.
+        User partnerEntity = trade.getInitiator().equals(user) ? trade.getRecipient() : trade.getInitiator();
 
+        // NOTIFICARE:
+        notificationService.notifyUser(
+                partnerEntity,
+                "Schimbul cu " + user.getNickname() + " a fost FINALIZAT cu succes! Verifică inventarul.",
+                NotificationType.TRADE_UPDATE,
+                "/inventory"
+        );
         return getTradeDetails(tradeId);
     }
 

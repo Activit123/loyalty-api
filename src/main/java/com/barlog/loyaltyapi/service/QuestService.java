@@ -6,17 +6,7 @@ import com.barlog.loyaltyapi.dto.QuestDetailsDto;
 import com.barlog.loyaltyapi.dto.UserCriterionProgressDto;
 import com.barlog.loyaltyapi.dto.UserQuestLogDto;
 import com.barlog.loyaltyapi.exception.ResourceNotFoundException;
-import com.barlog.loyaltyapi.model.CoinTransaction;
-import com.barlog.loyaltyapi.model.Product;
-import com.barlog.loyaltyapi.model.ProductCategory;
-import com.barlog.loyaltyapi.model.Quest;
-import com.barlog.loyaltyapi.model.QuestCriterion;
-import com.barlog.loyaltyapi.model.QuestStatus;
-import com.barlog.loyaltyapi.model.QuestType;
-import com.barlog.loyaltyapi.model.User;
-import com.barlog.loyaltyapi.model.UserCriterionProgress;
-import com.barlog.loyaltyapi.model.UserInventoryItem;
-import com.barlog.loyaltyapi.model.UserQuestLog;
+import com.barlog.loyaltyapi.model.*;
 import com.barlog.loyaltyapi.repository.CoinTransactionRepository;
 import com.barlog.loyaltyapi.repository.QuestRepository;
 import com.barlog.loyaltyapi.repository.UserCriterionProgressRepository;
@@ -52,7 +42,7 @@ public class QuestService {
     private final ProductService productService;
     private final UserRepository userRepository;
     private final CoinTransactionRepository coinTransactionRepository;
-
+    private final UserNotificationService notificationService; // INJECTAT
     // --- Mappers ---
 
     private QuestCriterion mapToEntity(QuestCriterionDto dto, Quest quest) {
@@ -510,6 +500,13 @@ public class QuestService {
                         log.setStatus(QuestStatus.COMPLETED);
                         log.setCompletionDate(LocalDateTime.now());
                         questLogRepository.save(log);
+                        // NOTIFICARE:
+                        notificationService.notifyUser(
+                                user,
+                                "QUEST COMPLETAT: " + log.getQuest().getTitle() + "! Revendică recompensa acum.",
+                                NotificationType.QUEST_COMPLETED,
+                                "/quests"
+                        );
                     }
 
                     return mapToLogDto(log);

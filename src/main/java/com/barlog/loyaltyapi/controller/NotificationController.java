@@ -19,15 +19,14 @@ public class NotificationController {
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public SseEmitter subscribeToNotifications() {
-        // Creăm un SseEmitter cu un timeout foarte lung (practic, fără timeout)
+        // Creăm un SseEmitter cu un timeout foarte lung
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
 
-        // Adăugăm emitter-ul la serviciul de notificări
-        notificationService.addEmitter(emitter);
+        // CORECTAT: Folosim metoda 'addAdminEmitter' în loc de 'addEmitter'
+        notificationService.addAdminEmitter(emitter);
 
-        // Putem trimite un eveniment inițial de confirmare, dacă dorim
         try {
-            emitter.send(SseEmitter.event().name("INIT").data("Conectat la fluxul de notificări."));
+            emitter.send(SseEmitter.event().name("INIT").data("Conectat la fluxul de notificări admin."));
         } catch (Exception e) {
             // Ignorăm erorile la trimiterea inițială
         }

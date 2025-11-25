@@ -46,6 +46,8 @@ public class SecurityConfig {
             "/api/announcements/**",
             // API publice
             "/api/auth/**",
+            "/api/notifications/**",
+            "api/notifications",
             "/oauth2/**",
             "/api/ai/**",
             "/api/trade/**",

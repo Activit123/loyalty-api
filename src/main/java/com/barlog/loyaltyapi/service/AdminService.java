@@ -5,10 +5,7 @@ import com.barlog.loyaltyapi.dto.AdjustCoinsRequestDto;
 import com.barlog.loyaltyapi.dto.TransactionDetailsDto;
 import com.barlog.loyaltyapi.dto.UserLeaderboardDto;
 import com.barlog.loyaltyapi.dto.UserResponseDto;
-import com.barlog.loyaltyapi.model.CoinTransaction;
-import com.barlog.loyaltyapi.model.Product;
-import com.barlog.loyaltyapi.model.QuestType;
-import com.barlog.loyaltyapi.model.User;
+import com.barlog.loyaltyapi.model.*;
 import com.barlog.loyaltyapi.repository.CoinTransactionRepository;
 import com.barlog.loyaltyapi.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -30,7 +27,7 @@ public class AdminService {
     private final ExperienceService experienceService;
     private final CharacterService characterService;
     private final FileStorageService fileStorageService; // ASIGURĂ-TE CĂ ACEASTA E INJECTATĂ
-
+    private final UserNotificationService notificationService; // INJECTAT
     private final ProductService productService;
     public UserResponseDto getUserById(Long userId) {
         User user = userRepository.findById(userId)
@@ -63,7 +60,14 @@ public class AdminService {
                 .createdAt(LocalDateTime.now())
                 .build();
         coinTransactionRepository.save(transaction);
+        notificationService.notifyUser(
+                user,
+                "Ai primit " + request.amount() + " Monede! (" + request.description() + ")",
+                NotificationType.SYSTEM,
+                "/profile"
+        );
         User updatedUser = userRepository.save(user);
+
         return mapUserToDto(updatedUser);
     }
     @Transactional

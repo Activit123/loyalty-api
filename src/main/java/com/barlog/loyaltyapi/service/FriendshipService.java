@@ -4,6 +4,7 @@ import com.barlog.loyaltyapi.dto.FriendResponseDto;
 import com.barlog.loyaltyapi.exception.ResourceNotFoundException;
 import com.barlog.loyaltyapi.model.Friendship;
 import com.barlog.loyaltyapi.model.FriendshipStatus;
+import com.barlog.loyaltyapi.model.NotificationType;
 import com.barlog.loyaltyapi.model.User;
 import com.barlog.loyaltyapi.repository.FriendshipRepository;
 import com.barlog.loyaltyapi.repository.UserRepository;
@@ -24,7 +25,7 @@ public class FriendshipService {
     private final UserRepository userRepository;
     private final LevelService levelService;
     private final FileStorageService fileStorageService; // INJECTAT PENTRU AVATAR
-
+    private final UserNotificationService notificationService; // INJECTAT
     // --- Helpers ---
     private User findUserByIdentifier(String identifier) {
         return userRepository.findByEmail(identifier)
@@ -98,7 +99,12 @@ public class FriendshipService {
                 .initiatorId(sender.getId()) // ESENTIAL: Salvăm cine a trimis
                 .build();
         Friendship savedFriendship = friendshipRepository.save(friendship);
-
+        notificationService.notifyUser(
+                receiver, // Destinatarul (cel găsit după identifier)
+                sender.getNickname() + " ți-a trimis o cerere de prietenie!",
+                NotificationType.FRIEND_REQUEST,
+                "/friends"
+        );
         return mapToDto(savedFriendship, sender);
     }
 
@@ -118,7 +124,14 @@ public class FriendshipService {
 
         friendship.setStatus(FriendshipStatus.ACCEPTED);
         Friendship acceptedFriendship = friendshipRepository.save(friendship);
+        User otherUser = friendship.getUserA().equals(currentUser) ? friendship.getUserB() : friendship.getUserA();
 
+        notificationService.notifyUser(
+                otherUser,
+                currentUser.getNickname() + " a acceptat cererea ta de prietenie!",
+                NotificationType.FRIEND_REQUEST,
+                "/friends"
+        );
         return mapToDto(acceptedFriendship, currentUser);
     }
 

@@ -26,7 +26,7 @@ public class ShopService {
     private final ExperienceService experienceService;
     private final UserInventoryItemRepository userInventoryItemRepository; // Injectează noul repo
     private final QuestService questService;
-
+    private final UserNotificationService notificationService; // INJECTAT
     @Transactional
     public User purchaseProduct(Long productId, User currentUser) {
         // 1. Găsim produsul și verificăm dacă este valid

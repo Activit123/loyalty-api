@@ -30,43 +30,54 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // 1. Extragem header-ul Authorization
         final String authHeader = request.getHeader("Authorization");
-        final String jwt;
+        String jwt = null;
         final String userEmail;
 
-        // 2. Verificăm dacă header-ul există și începe cu "Bearer "
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            // Dacă nu, trecem la următorul filtru din lanț și încheiem execuția
+        // 1. Verificăm Header-ul (Prioritar)
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwt = authHeader.substring(7);
+        }
+
+        // 2. Dacă nu e în Header, verificăm parametrul URL (pentru SSE)
+        if (jwt == null) {
+            String tokenParam = request.getParameter("token");
+            if (tokenParam != null && !tokenParam.isEmpty()) {
+                jwt = tokenParam;
+            }
+        }
+
+        // 3. Dacă nu am găsit token nicăieri, continuăm lanțul (User neautentificat)
+        if (jwt == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // 3. Extragem token-ul (șirul de după "Bearer ")
-        jwt = authHeader.substring(7);
-        userEmail = jwtService.extractUsername(jwt); // Extragem email-ul din token
+        // 4. Validare Token
+        try {
+            userEmail = jwtService.extractUsername(jwt);
 
-        // 4. Verificăm dacă avem un email și utilizatorul nu este deja autentificat
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            // Încărcăm detaliile utilizatorului din baza de date
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-            // 5. Verificăm dacă token-ul este valid
-            if (jwtService.isTokenValid(jwt, userDetails)) {
-                // Creăm un obiect de autentificare
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null, // Nu avem nevoie de credențiale (parolă) aici
-                        userDetails.getAuthorities()
-                );
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
-                // 6. Actualizăm SecurityContextHolder cu noua autentificare
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                if (jwtService.isTokenValid(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+                    authToken.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
+                    );
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
+        } catch (Exception e) {
+            // Dacă token-ul este invalid sau expirat, nu crăpăm aplicația,
+            // ci lăsăm cererea să treacă neautentificată (va primi 401/403 de la SecurityConfig)
+            logger.error("Eroare validare JWT: " + e.getMessage());
         }
-        // Trecem la următorul filtru
+
         filterChain.doFilter(request, response);
     }
 }

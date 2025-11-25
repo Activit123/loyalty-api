@@ -3,7 +3,10 @@ package com.barlog.loyaltyapi.service;
 import com.barlog.loyaltyapi.dto.AnnouncementDto;
 import com.barlog.loyaltyapi.dto.AnnouncementRequestDto;
 import com.barlog.loyaltyapi.model.Announcement;
+import com.barlog.loyaltyapi.model.NotificationType;
+import com.barlog.loyaltyapi.model.User;
 import com.barlog.loyaltyapi.repository.AnnouncementRepository;
+import com.barlog.loyaltyapi.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,7 +21,8 @@ public class AnnouncementService {
 
     private final AnnouncementRepository announcementRepository;
     private final FileStorageService fileStorageService;
-
+    private final UserNotificationService notificationService;
+    private final UserRepository userRepository;
     public List<AnnouncementDto> getAllAnnouncements() {
         return announcementRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(this::mapToDto)
@@ -66,8 +70,20 @@ public class AnnouncementService {
                 .description(requestDto.getDescription())
                 .imageUrl(publicId) // *** SALVĂM PUBLIC ID-UL CLOUDINARY ***
                 .build();
+        List<User> allUsers = userRepository.findAll();
 
-        return mapToDto(announcementRepository.save(announcement));
+
+        Announcement announcement1 = announcementRepository.save(announcement);
+        // 2. Creează o notificare pentru fiecare utilizator
+        allUsers.forEach(user -> {
+            notificationService.notifyUser(
+                    user,
+                    "Anunț Nou: " + announcement.getTitle(),
+                    NotificationType.SYSTEM, // Folosim SYSTEM sau un tip NOU
+                    STR."/announcements/\{announcement.getId()}"
+            );
+        });
+        return mapToDto(announcement1);
     }
 
     @Transactional
