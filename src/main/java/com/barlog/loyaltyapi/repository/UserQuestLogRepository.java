@@ -17,7 +17,7 @@ import java.util.Optional;
 @Repository
 public interface UserQuestLogRepository extends JpaRepository<UserQuestLog, Long> {
 
-
+    List<UserQuestLog> findByQuestIdAndStatus(Long questId, QuestStatus status);
 
     // CORECTAT: Interogare JPQL/HQL cu @Param și JOIN FETCH pe criterii (pentru a evita N+1)
     // Ne asigurăm că progresul este încărcat (care este o colecție pe UserQuestLog)
@@ -29,7 +29,7 @@ public interface UserQuestLogRepository extends JpaRepository<UserQuestLog, Long
             "LEFT JOIN FETCH q.criteria qc " + // Încărcăm Criteriile Quest-ului
             "WHERE ql.user = :user AND ql.status IN ('ACTIVE', 'COMPLETED', 'REWARDED')")
     List<UserQuestLog> findUserQuestsWithDetails(@Param("user") User user);
-   
+
 
     // CORECTAT: Schimbăm denumirea metodei.
     @Query("SELECT ql FROM UserQuestLog ql " +
@@ -39,11 +39,15 @@ public interface UserQuestLogRepository extends JpaRepository<UserQuestLog, Long
             "WHERE ql.user = :user AND ql.status IN ('ACTIVE', 'COMPLETED', 'REWARDED')")
     List<UserQuestLog> findAllQuestsWithProgressByUserId(@Param("user") User user);
 
-    // CORECTAT: Am eliminat JOIN FETCH pe ql.criterionProgress (colecția de tip List de pe UserQuestLog)
     @Query("SELECT DISTINCT ql FROM UserQuestLog ql " +
             "JOIN FETCH ql.quest q " +
             "LEFT JOIN FETCH q.criteria qc " +
-            "LEFT JOIN FETCH ql.criterionProgress p " + // Acum e Set
-            "WHERE ql.user = :user AND ql.status IN ('ACTIVE', 'COMPLETED', 'REWARDED')")
+            "WHERE ql.user = :user AND ql.status IN ('ACTIVE', 'COMPLETED', 'REWARDED', 'EXPIRED')")
+    @org.springframework.data.jpa.repository.QueryHints({
+            @QueryHint(name = "jakarta.persistence.cache.retrieveMode", value = "BYPASS")
+    })
     List<UserQuestLog> findAllByUserAndStatusInForDisplay(@Param("user") User user);
+
+    @Query("SELECT ql FROM UserQuestLog ql JOIN FETCH ql.quest WHERE ql.status = 'ACTIVE'")
+    List<UserQuestLog> findAllActiveLogsWithQuest();
 }

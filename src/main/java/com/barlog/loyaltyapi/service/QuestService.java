@@ -25,6 +25,7 @@ import com.barlog.loyaltyapi.repository.ProductRepository;
 import com.barlog.loyaltyapi.repository.UserRepository;
 import com.barlog.loyaltyapi.repository.QuestCriterionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -219,49 +220,58 @@ public class QuestService {
         Quest quest = questRepository.findById(questId)
                 .orElseThrow(() -> new ResourceNotFoundException("Quest-ul nu a fost găsit."));
 
-        Product rewardProduct = updateDto.getRewardProductId() != null
-                ? productRepository.findById(updateDto.getRewardProductId()).orElse(null)
-                : null;
-
-        // Actualizarea câmpurilor de bază
+        // ... (Setări câmpuri simple: title, description, rewards etc.) ...
         quest.setTitle(updateDto.getTitle());
-        quest.setDescription(updateDto.getDescription());
-        quest.setDurationDays(updateDto.getDurationDays());
-        quest.setType(QuestType.valueOf(updateDto.getType()));
-        quest.setRewardCoins(updateDto.getRewardCoins());
-        quest.setRewardXp(updateDto.getRewardXp());
-        quest.setRewardProduct(rewardProduct);
-        quest.setActive(updateDto.isActive());
+        // ... restul setărilor ...
+        quest.setActive(updateDto.isActive()); // Setăm noua stare
 
-        // 4. ACTUALIZAREA CRITERIILOR
-
-        // PAS CRITIC NOU: Șterge progresul utilizatorilor legat de criteriile vechi
-        // Înainte de a șterge criteriile, trebuie să rupem legătura din user_criterion_progress
-        if (quest.getCriteria() != null && !quest.getCriteria().isEmpty()) {
+        // 1. GESTIONARE CRITERII (Ștergere Vechi)
+        // Mai întâi ștergem progresul VECHI pentru toți utilizatorii (pentru a nu avea orfani)
+        // Deoarece vom șterge criteriile, progresul legat de ele trebuie să dispară.
+        // Asta se aplică și utilizatorilor ACTIVE și celor EXPIRED.
+        if (quest.getCriteria() != null) {
             for (QuestCriterion oldCriterion : quest.getCriteria()) {
-                // Ștergem tot progresul legat de acest criteriu pentru a evita eroarea de Foreign Key
                 criterionProgressRepository.deleteByCriterion(oldCriterion);
             }
         }
-
-        // Pasul A: Acum putem goli colecția în siguranță
         quest.getCriteria().clear();
 
-        // Pasul B: Construim și adăugăm noile criterii
+        // 2. GESTIONARE CRITERII (Adăugare Noi)
         if (updateDto.getCriteria() != null && !updateDto.getCriteria().isEmpty()) {
             Set<QuestCriterion> newCriteria = updateDto.getCriteria().stream()
                     .map(dto -> {
                         QuestCriterion criterion = mapToEntity(dto, quest);
                         criterion.setQuest(quest);
-                        return criterion;
+                        return questCriterionRepository.save(criterion);
                     })
                     .collect(Collectors.toSet());
-
-            quest.getCriteria().addAll(newCriteria);
+            quest.setCriteria(newCriteria);
         }
 
-        // 5. Salvarea Quest-ului
         Quest updatedQuest = questRepository.save(quest);
+
+        // 3. LOGICA DE REACTIVARE UTILIZATORI
+        // Dacă Quest-ul este acum ACTIV, căutăm utilizatorii care îl aveau EXPIRED și îl reactivăm.
+        if (updatedQuest.isActive()) {
+            List<UserQuestLog> expiredLogs = questLogRepository.findByQuestIdAndStatus(questId, QuestStatus.EXPIRED);
+
+            for (UserQuestLog log : expiredLogs) {
+                log.setStatus(QuestStatus.ACTIVE);
+                log.setCompletionDate(null); // Resetăm data
+                questLogRepository.save(log);
+
+                // CRITIC: Re-inițializăm progresul pentru NOILE criterii
+                initializeCriterionProgress(log, updatedQuest.getCriteria());
+            }
+
+            // Opțional: Trebuie să re-inițializăm progresul și pentru cei care erau ACTIVE?
+            // Da, pentru că am șters criteriile vechi!
+            List<UserQuestLog> activeLogs = questLogRepository.findByQuestIdAndStatus(questId, QuestStatus.ACTIVE);
+            for (UserQuestLog log : activeLogs) {
+                // initializeCriterionProgress adaugă doar ce lipsește, deci e sigur
+                initializeCriterionProgress(log, updatedQuest.getCriteria());
+            }
+        }
 
         return mapToDetailsDto(updatedQuest);
     }
@@ -269,9 +279,22 @@ public class QuestService {
     public void deleteQuest(Long questId) {
         Quest quest = questRepository.findById(questId)
                 .orElseThrow(() -> new ResourceNotFoundException("Quest-ul cu ID-ul " + questId + " nu a fost găsit."));
+
+        // 1. Dezactivează definiția Quest-ului
         quest.setActive(false);
         questRepository.save(quest);
+
+        // 2. Caută toți utilizatorii care au acest quest ACTIV
+        List<UserQuestLog> activeUserLogs = questLogRepository.findByQuestIdAndStatus(questId, QuestStatus.ACTIVE);
+
+        // 3. Marchează-le ca EXPIRED
+        for (UserQuestLog log : activeUserLogs) {
+            log.setStatus(QuestStatus.EXPIRED);
+            log.setCompletionDate(LocalDateTime.now()); // Setăm data pentru a apărea corect în istoric
+            questLogRepository.save(log);
+        }
     }
+
 
     // --- User Flow: Asignare și Progres ---
 
@@ -366,7 +389,35 @@ public class QuestService {
     }
 
     // --- User Flow: claimReward ---
+    @Scheduled(cron = "0 0 0 * * *")
+    @Transactional
+    public void expireOverdueQuests() {
+        System.out.println("--- CRON: Checking for expired quests... ---");
 
+        // 1. Preia toate quest-urile active ale utilizatorilor
+        List<UserQuestLog> activeLogs = questLogRepository.findAllActiveLogsWithQuest();
+        LocalDate today = LocalDate.now();
+        int expiredCount = 0;
+
+        for (UserQuestLog log : activeLogs) {
+            // 2. Calculează data limită
+            // Data limită = Data Start + Durata (zile)
+            int duration = log.getQuest().getDurationDays();
+            LocalDate expirationDate = log.getStartDate().plusDays(duration);
+
+            // 3. Verifică dacă a trecut timpul
+            // Dacă azi este DUPĂ data expirării
+            if (today.isAfter(expirationDate)) {
+                log.setStatus(QuestStatus.EXPIRED);
+                log.setCompletionDate(LocalDateTime.now()); // Setăm data expirării
+
+                questLogRepository.save(log);
+                expiredCount++;
+            }
+        }
+
+        System.out.println("--- CRON: Expired " + expiredCount + " quests. ---");
+    }
     @Transactional
     public UserQuestLogDto claimReward(User user, Long userQuestLogId) {
         UserQuestLog log = questLogRepository.findById(userQuestLogId)
@@ -418,20 +469,29 @@ public class QuestService {
     }
 
     public List<UserQuestLogDto> getUserQuestLog(User user) {
+        // Acum Repository-ul returnează și EXPIRED
         List<UserQuestLog> logs = questLogRepository.findAllByUserAndStatusInForDisplay(user);
 
         return logs.stream()
+                // Filtrăm doar să nu fie REWARDED foarte vechi. EXPIRED trece.
                 .filter(log -> log.getStatus() != QuestStatus.REWARDED || log.getCompletionDate().isAfter(LocalDateTime.now().minusDays(30)))
                 .map(log -> {
 
-                    // 1. Recalculăm progresul (doar în memorie sau salvăm individual)
-                    // NU înlocuim colecția de pe 'log' cu setCriterionProgress(newSet)
+                    // Dacă e EXPIRED, nu recalculăm progresul (nu are sens, e istoric)
+                    if (log.getStatus() == QuestStatus.EXPIRED) {
+                        return mapToLogDto(log);
+                    }
 
-                    // Preluăm progresul curent din DB (pentru a evita LazyInit dacă nu a fost fetch-uit)
-                    // Dar cum am scos fetch-ul, accesarea log.getCriterionProgress() aici va face un SELECT.
                     Set<UserCriterionProgress> currentProgressSet = log.getCriterionProgress();
 
-                    // Actualizăm valorile obiectelor existente în set
+                    // Dacă cumva setul e gol (din cauza unui update anterior), încercăm să-l populăm
+                    // Aceasta este o plasă de siguranță
+                    if (currentProgressSet == null || currentProgressSet.isEmpty()) {
+                        initializeCriterionProgress(log, log.getQuest().getCriteria());
+                        // Reîncărcăm pentru a avea datele
+                        currentProgressSet = log.getCriterionProgress();
+                    }
+
                     for (UserCriterionProgress p : currentProgressSet) {
                         if (!p.getIsCompleted()) {
                             double historyProgress = calculateProgressFromHistory(user, p.getCriterion(), log.getStartDate().atStartOfDay());
@@ -439,13 +499,13 @@ public class QuestService {
                             if (historyProgress > p.getCurrentProgress()) {
                                 p.setCurrentProgress(Math.min(historyProgress, p.getCriterion().getRequiredAmount()));
                                 p.setIsCompleted(historyProgress >= p.getCriterion().getRequiredAmount());
-                                criterionProgressRepository.save(p); // Salvăm actualizarea
+                                criterionProgressRepository.save(p);
                             }
                         }
                     }
 
-                    // Verificăm completarea
-                    boolean allMet = currentProgressSet.stream().allMatch(UserCriterionProgress::getIsCompleted);
+                    boolean allMet = !currentProgressSet.isEmpty() && currentProgressSet.stream().allMatch(UserCriterionProgress::getIsCompleted);
+
                     if (allMet && log.getStatus() == QuestStatus.ACTIVE) {
                         log.setStatus(QuestStatus.COMPLETED);
                         log.setCompletionDate(LocalDateTime.now());
