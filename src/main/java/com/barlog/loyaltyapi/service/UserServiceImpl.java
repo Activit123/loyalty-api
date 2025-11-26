@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor // 1. Adaugă adnotarea Lombok
@@ -41,7 +42,8 @@ public class UserServiceImpl implements UserService {
                 throw new IllegalStateException("Emailul este deja folosit.");
             }
         }
-
+        // 1. Generare Recovery Key (UUID scurtat)
+        String recoveryKey = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         User newUser = User.builder()
                 .firstName(registerUserDto.getFirstName())
                 .lastName(registerUserDto.getLastName())
@@ -52,13 +54,24 @@ public class UserServiceImpl implements UserService {
                 .coins(0)
                 .xpRate(1.0)
                 .experience(0.0)
+                .recoveryKey(recoveryKey)
                 .build();
 
         return userRepository.save(newUser);
     }
 
 
+    @Transactional
+    public User generateNewRecoveryKey(User currentUser) {
+        // 1. Generare nouă cheie
+        String newKey = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
+        // 2. Aplică cheia și resetează 'lastUsed'
+        currentUser.setRecoveryKey(newKey);
+        currentUser.setRecoveryKeyLastUsed(null); // Marchează ca disponibilă pentru utilizare
+
+        return userRepository.save(currentUser);
+    }
     @Override // 3. Adaugă @Override pentru a asigura implementarea corectă a interfeței
     @Transactional
     public User claimReceiptCoins(User currentUser, ClaimRequestDto claimRequest) {

@@ -178,6 +178,7 @@ public class AdminService {
         } else {
             dto.setAvatarUrl(null); // Sau URL-ul unui avatar implicit
         }
+        dto.setRecoveryKey(user.getRecoveryKey());
         return dto;
     }
 }

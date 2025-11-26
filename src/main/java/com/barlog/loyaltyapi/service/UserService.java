@@ -10,4 +10,5 @@ public interface UserService {
     User claimReceiptCoins(User currentUser, ClaimRequestDto claimRequest);
     User updateNickname(User currentUser, String newNickname);
     User updateAvatar(User currentUser, MultipartFile file);
+    User generateNewRecoveryKey(User currentUser);
 }

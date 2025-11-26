@@ -64,6 +64,12 @@ public class User implements UserDetails {
     @ManyToOne(fetch = FetchType.EAGER) // <-- ADAUGĂ ACEASTA
     @JoinColumn(name = "race_id")
     private Race race;
+    // NOU: Câmpuri pentru Recovery Key
+    @Column(name = "recovery_key")
+    private String recoveryKey; // Cheia de 8 caractere
+
+    @Column(name = "recovery_key_last_used")
+    private LocalDateTime recoveryKeyLastUsed; // Data ultimei utilizări
 
     @ManyToOne(fetch = FetchType.EAGER) // <-- ADAUGĂ ACEASTA
     @JoinColumn(name = "class_type_id")

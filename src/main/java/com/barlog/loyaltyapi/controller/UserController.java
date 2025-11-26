@@ -26,7 +26,6 @@ public class UserController {
     private final UserService userService;
     private final AdminService adminService;
 
-
     private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
     @GetMapping("/me")
@@ -62,6 +61,17 @@ public class UserController {
 
         return ResponseEntity.ok(adminService.mapUserToDto(updatedUser));
     }
+    @PatchMapping("/me/generate-recovery-key")
+    public ResponseEntity<UserResponseDto> generateNewRecoveryKey(Authentication authentication) {
+        User currentUser = (User) authentication.getPrincipal();
+
+        // Logica de serviciu pentru a genera o cheie nouă
+        User updatedUser = userService.generateNewRecoveryKey(currentUser);
+
+        // DTO-ul va include noul recoveryKey în câmpul recoveryKey
+        return ResponseEntity.ok(adminService.mapUserToDto(updatedUser));
+    }
+
     @PutMapping("/me/nickname")
     public ResponseEntity<?> updateUserNickname(Authentication authentication, @RequestBody @Valid NicknameRequestDto nicknameDto) {
         User currentUser = (User) authentication.getPrincipal();

@@ -23,5 +23,6 @@ public class UserResponseDto {
     private ClassTypeDto classType;
     private LevelInfoDto levelInfo;
     private String avatarUrl;
+    private String recoveryKey;
 
 }
