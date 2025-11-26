@@ -46,7 +46,7 @@ public class AuthController {
             responseDto.setCoins(newUser.getCoins());
             responseDto.setRole(newUser.getRole());
             responseDto.setCreatedAt(newUser.getCreatedAt());
-
+            responseDto.setRecoveryKey(newUser.getRecoveryKey());
             return new ResponseEntity<>(responseDto, HttpStatus.CREATED);
         } catch (IllegalStateException e) {
             // Prindem excepția aruncată de serviciu și returnăm un mesaj clar
