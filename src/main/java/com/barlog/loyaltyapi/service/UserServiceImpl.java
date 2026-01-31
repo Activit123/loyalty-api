@@ -1,7 +1,6 @@
 package com.barlog.loyaltyapi.service;
 
 import com.barlog.loyaltyapi.dto.ClaimRequestDto;
-import com.barlog.loyaltyapi.dto.PointDistributionDto;
 import com.barlog.loyaltyapi.dto.RegisterUserDto;
 import com.barlog.loyaltyapi.model.*;
 import com.barlog.loyaltyapi.repository.CoinTransactionRepository;
@@ -27,7 +26,7 @@ public class UserServiceImpl implements UserService {
     private final CoinTransactionRepository coinTransactionRepository;
     private final ExperienceService experienceService;
     private final FileStorageService fileStorageService;
-    private final BonusService bonusService;
+ //   private final BonusService bonusService;
     private final QuestService questService;
     @Override
     public User registerUser(RegisterUserDto registerUserDto) {
@@ -80,13 +79,13 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("Suma de revendicat trebuie să fie pozitivă.");
         }
 
-        double coinMultiplier = bonusService.calculateMultiplier(currentUser, ItemEffectType.COIN_BOOST_GLOBAL, null);
+ //       double coinMultiplier = bonusService.calculateMultiplier(currentUser, ItemEffectType.COIN_BOOST_GLOBAL, null);
 
         // 2. Aplicăm bonusul
-        int baseAmount = claimRequest.getAmount();
-        int finalAmount = (int) Math.round(baseAmount * coinMultiplier);
+      //  int baseAmount = claimRequest.getAmount();
+   //     int finalAmount = (int) Math.round(baseAmount * coinMultiplier);
 
-        currentUser.setCoins(currentUser.getCoins() + finalAmount);
+  //      currentUser.setCoins(currentUser.getCoins() + finalAmount);
 
         CoinTransaction transaction = CoinTransaction.builder()
                 .user(currentUser)

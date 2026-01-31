@@ -11,4 +11,8 @@ public interface UserService {
     User updateNickname(User currentUser, String newNickname);
     User updateAvatar(User currentUser, MultipartFile file);
     User generateNewRecoveryKey(User currentUser);
+
+   // void distributePoints(User user, PointDistributionDto req);
+
+
 }
