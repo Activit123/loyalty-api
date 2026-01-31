@@ -37,6 +37,7 @@ public class SecurityConfig {
     // Array static pentru rutele publice (folosit pentru lizibilitate și mentenanță)
     private static final String[] PUBLIC_URLS = {
             // Swagger / OpenAPI / SpringDoc
+            "/api/admin/quests/sync-users",
             "/swagger-ui.html",
             "/swagger-ui/**",
             "/api/character/**",
