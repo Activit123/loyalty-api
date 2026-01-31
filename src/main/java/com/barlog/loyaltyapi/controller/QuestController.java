@@ -4,6 +4,7 @@ import com.barlog.loyaltyapi.dto.QuestCreateDto;
 import com.barlog.loyaltyapi.dto.QuestDetailsDto;
 import com.barlog.loyaltyapi.dto.UserQuestLogDto;
 import com.barlog.loyaltyapi.model.User;
+import com.barlog.loyaltyapi.repository.UserRepository;
 import com.barlog.loyaltyapi.service.QuestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,25 @@ public class QuestController {
     private final QuestService questService;
 
     // --- 1. Admin: Creare/Management Quest-uri ---
+    private final UserRepository userRepository; // 2. INJECTARE DIRECTĂ REPO
+
+    // === 3. LOGICA SOLICITATĂ ÎN CONTROLLER ===
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/admin/quests/sync-users")
+    public ResponseEntity<String> syncQuestsToAllUsers() {
+        // A. Luăm toți userii direct din baza de date (aici în controller)
+        List<User> allUsers = userRepository.findAll();
+
+        int count = 0;
+        // B. Iterăm prin listă (logică de distribuire în controller)
+        for (User user : allUsers) {
+            // C. Apelăm metoda de asignare per user (care face verificările de duplicat)
+            questService.assignActiveQuests(user);
+            count++;
+        }
+
+        return ResponseEntity.ok("Sincronizare efectuată: Quest-urile au fost verificate și distribuite pentru " + count + " utilizatori.");
+    }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/admin/quests")

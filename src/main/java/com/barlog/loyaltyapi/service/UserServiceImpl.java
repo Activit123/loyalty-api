@@ -1,11 +1,9 @@
 package com.barlog.loyaltyapi.service;
 
 import com.barlog.loyaltyapi.dto.ClaimRequestDto;
+import com.barlog.loyaltyapi.dto.PointDistributionDto;
 import com.barlog.loyaltyapi.dto.RegisterUserDto;
-import com.barlog.loyaltyapi.model.AuthProvider;
-import com.barlog.loyaltyapi.model.CoinTransaction;
-import com.barlog.loyaltyapi.model.Role;
-import com.barlog.loyaltyapi.model.User;
+import com.barlog.loyaltyapi.model.*;
 import com.barlog.loyaltyapi.repository.CoinTransactionRepository;
 import com.barlog.loyaltyapi.repository.UserRepository;
 import jakarta.transaction.Transactional;
@@ -29,7 +27,8 @@ public class UserServiceImpl implements UserService {
     private final CoinTransactionRepository coinTransactionRepository;
     private final ExperienceService experienceService;
     private final FileStorageService fileStorageService;
-
+    private final BonusService bonusService;
+    private final QuestService questService;
     @Override
     public User registerUser(RegisterUserDto registerUserDto) {
         Optional<User> existingUserOptional = userRepository.findByEmail(registerUserDto.getEmail());
@@ -57,12 +56,14 @@ public class UserServiceImpl implements UserService {
                 .recoveryKey(recoveryKey)
                 .build();
 
-        return userRepository.save(newUser);
+        User savedUser = userRepository.save(newUser);
+        questService.assignActiveQuests(savedUser);
+        return savedUser;
     }
 
 
     @Transactional
-    public User generateNewRecoveryKey(User currentUser) {
+    public User generateNewRcoveryKey(User currentUser) {
         // 1. Generare nouă cheie
         String newKey = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
@@ -79,7 +80,13 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("Suma de revendicat trebuie să fie pozitivă.");
         }
 
-        currentUser.setCoins(currentUser.getCoins() + claimRequest.getAmount());
+        double coinMultiplier = bonusService.calculateMultiplier(currentUser, ItemEffectType.COIN_BOOST_GLOBAL, null);
+
+        // 2. Aplicăm bonusul
+        int baseAmount = claimRequest.getAmount();
+        int finalAmount = (int) Math.round(baseAmount * coinMultiplier);
+
+        currentUser.setCoins(currentUser.getCoins() + finalAmount);
 
         CoinTransaction transaction = CoinTransaction.builder()
                 .user(currentUser)
@@ -121,4 +128,44 @@ public class UserServiceImpl implements UserService {
 
         return userRepository.save(currentUser);
     }
+
+    @Override
+    public User generateNewRecoveryKey(User currentUser) {
+        return null;
+    }
+
+
+
+
+
+   /* @Override
+    @Transactional
+    public void distributePoints(User user, PointDistributionDto req) {
+        // 1. Verificăm dacă sunt valori negative (nu poți scădea stat-uri ca să primești puncte înapoi)
+        if (req.getStr() < 0 || req.getDex() < 0 || req.getIntel() < 0 || req.getCha() < 0) {
+            throw new IllegalArgumentException("Nu poți folosi valori negative.");
+        }
+
+        // 2. Calculăm totalul cerut
+        int totalRequested = req.getStr() + req.getDex() + req.getIntel() + req.getCha();
+
+        // 3. Verificăm dacă userul are destule puncte
+        if (totalRequested > user.getUnallocatedPoints()) {
+            throw new IllegalStateException("Nu ai suficiente puncte disponibile! Ai doar " + user.getUnallocatedPoints());
+        }
+
+        if (totalRequested == 0) return; // Nimic de făcut
+
+        // 4. Aplicăm modificările
+        user.setStrength(user.getStrength() + req.getStr());
+        user.setDexterity(user.getDexterity() + req.getDex());
+        user.setIntelligence(user.getIntelligence() + req.getIntel());
+        user.setCharisma(user.getCharisma() + req.getCha());
+
+        // 5. Scădem din portofelul de puncte
+        user.setUnallocatedPoints(user.getUnallocatedPoints() - totalRequested);
+
+        userRepository.save(user);
+    }*/
+
 }
