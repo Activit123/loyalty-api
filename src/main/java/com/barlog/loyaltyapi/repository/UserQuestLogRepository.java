@@ -21,8 +21,14 @@ public interface UserQuestLogRepository extends JpaRepository<UserQuestLog, Long
 
     // CORECTAT: Interogare JPQL/HQL cu @Param și JOIN FETCH pe criterii (pentru a evita N+1)
     // Ne asigurăm că progresul este încărcat (care este o colecție pe UserQuestLog)
-    Optional<UserQuestLog> findByUserAndQuestIdAndStatus(User user, Long questId, QuestStatus status);
-
+    // SUPRASCRIERE: Ignorăm parametrul 'status' trimis de service
+    // și returnăm orice înregistrare existentă pentru acest user și quest.
+    @Query("SELECT ql FROM UserQuestLog ql WHERE ql.user = :user AND ql.quest.id = :questId")
+    Optional<UserQuestLog> findByUserAndQuestIdAndStatus(
+            @Param("user") User user,
+            @Param("questId") Long questId,
+            @Param("status") QuestStatus status // Parametrul rămâne aici ca să nu crape compilarea, dar e ignorat în query
+    );
     // MODIFICATĂ: Interogarea simplă (fără JOIN FETCH pe Progres)
     @Query("SELECT ql FROM UserQuestLog ql " +
             "JOIN FETCH ql.quest q " + // Încărcăm Quest-ul
