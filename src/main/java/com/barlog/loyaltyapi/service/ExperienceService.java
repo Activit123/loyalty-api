@@ -1,10 +1,7 @@
 package com.barlog.loyaltyapi.service;
 
-import com.barlog.loyaltyapi.model.ClassType;
-import com.barlog.loyaltyapi.model.ProductCategory;
-import com.barlog.loyaltyapi.model.Race;
-import com.barlog.loyaltyapi.model.User;
-import com.barlog.loyaltyapi.model.XpTransaction;
+import com.barlog.loyaltyapi.model.*;
+import com.barlog.loyaltyapi.repository.UserItemRepository;
 import com.barlog.loyaltyapi.repository.UserRepository;
 import com.barlog.loyaltyapi.repository.XpTransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -23,7 +21,7 @@ public class ExperienceService {
 
     private final UserRepository userRepository;
     private final XpTransactionRepository xpTransactionRepository;
-
+    private final UserItemRepository userItemRepository;
     // NOUA CONSTANTA: Multiplicator pentru XP la revendicarea bonului (Buy Price * 5 / Claim Value)
     // Deoarece în cerință ai spus "ca și cum ar fi cumpărat produsul la preț de magazin, adică de 5 ori mai mult"
     private static final double XP_MULTIPLIER_FOR_RECEIPT_CLAIM = 5.0;
@@ -64,7 +62,9 @@ public class ExperienceService {
         if (user.getClassType() != null) {
             modifiedAmount *= getClassBonus(user.getClassType(), category);
         }
-
+        // 3. --- NOU: BONUS DIN ITEME ECHIPATE ---
+        double itemMultiplier = calculateItemXpMultiplier(user, category);
+        modifiedAmount *= itemMultiplier;
         // 3. Aplică Rata Generală de XP
         double finalExperience = modifiedAmount * user.getXpRate(); // finalExperience este de tip Double
 
@@ -85,6 +85,32 @@ public class ExperienceService {
         xpTransactionRepository.save(transaction);
     }
 
+
+    private double calculateItemXpMultiplier(User user, ProductCategory category) {
+        // Luăm doar itemele echipate
+        List<UserItem> equippedItems = userItemRepository.findByUserAndIsEquippedTrue(user);
+
+        double multiplier = 1.0;
+
+        for (UserItem ui : equippedItems) {
+            for (ItemEffect effect : ui.getItemTemplate().getEffects()) {
+
+                // Cazul 1: XP Boost Global (ex: +10% la orice)
+                if (effect.getEffectType() == ItemEffectType.XP_BOOST_GLOBAL) {
+                    // Valoarea 10.0 înseamnă 10%, deci adăugăm 0.1
+                    multiplier += (effect.getValue() / 100.0);
+                }
+
+                // Cazul 2: XP Boost Specific (ex: +20% la BERE)
+                if (effect.getEffectType() == ItemEffectType.XP_BOOST_CATEGORY && category != null) {
+                    if (effect.getTargetCategory() == category) {
+                        multiplier += (effect.getValue() / 100.0);
+                    }
+                }
+            }
+        }
+        return multiplier;
+    }
     // Metodă helper pentru bonusul rasial (folosește Double)
     private double getRacialBonus(Race race, ProductCategory category) {
         if (race.getLoyaltyBonusCategory() == null || category == null) return 1.0;

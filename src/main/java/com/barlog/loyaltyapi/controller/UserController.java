@@ -84,7 +84,18 @@ public class UserController {
         // DTO-ul va include noul recoveryKey în câmpul recoveryKey
         return ResponseEntity.ok(adminService.mapUserToDto(updatedUser));
     }
+    // --- RPG: DISTRIBUIRE PUNCTE (STR, DEX, etc.) ---
+    @PostMapping("/distribute-points")
+    public ResponseEntity<UserResponseDto> distributePoints(
+            Authentication authentication,
+            @RequestBody PointDistributionDto request) {
 
+        User user = (User) authentication.getPrincipal();
+        userService.distributePoints(user, request);
+
+        // Returnăm userul actualizat pentru a se reflecta în UI instant
+        return ResponseEntity.ok(adminService.mapUserToDto(user));
+    }
     @PutMapping("/me/nickname")
     public ResponseEntity<?> updateUserNickname(Authentication authentication, @RequestBody @Valid NicknameRequestDto nicknameDto) {
         User currentUser = (User) authentication.getPrincipal();

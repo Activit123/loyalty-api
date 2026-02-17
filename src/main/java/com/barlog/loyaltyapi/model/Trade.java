@@ -1,5 +1,6 @@
 package com.barlog.loyaltyapi.model;
 
+import com.barlog.loyaltyapi.dto.TradeOfferItem;
 import com.barlog.loyaltyapi.repository.TradeStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -7,6 +8,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Builder
@@ -42,7 +45,10 @@ public class Trade {
     
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
+    // --- ADAUGĂ ACEASTĂ LISTĂ ---
+    @OneToMany(mappedBy = "trade", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<TradeOfferItem> items = new ArrayList<>();
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

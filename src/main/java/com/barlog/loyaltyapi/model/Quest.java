@@ -43,6 +43,10 @@ public class Quest {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reward_product_id")
     private Product rewardProduct;
+    // --- NOU ---
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reward_item_template_id")
+    private ItemTemplate rewardItemTemplate;
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;

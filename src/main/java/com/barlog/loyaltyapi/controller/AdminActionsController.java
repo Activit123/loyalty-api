@@ -23,6 +23,13 @@ public class AdminActionsController {
         UserResponseDto userDto = adminService.getUserById(userId);
         return ResponseEntity.ok(userDto);
     }
+
+    @PostMapping("/recalculate-all-stats")
+    public ResponseEntity<String> recalculateAllStats() {
+        adminService.recalculateStatsForEveryone();
+        return ResponseEntity.ok("Statistici și puncte recalculate pentru toți utilizatorii!");
+    }
+
     @GetMapping("/users/by-email/{email}")
     public ResponseEntity<UserResponseDto> getUserDetailsByEmail(@PathVariable String email) {
         UserResponseDto userDto = adminService.getUserByEmail(email);

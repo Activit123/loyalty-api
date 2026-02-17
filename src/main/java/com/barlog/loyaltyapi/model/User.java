@@ -104,6 +104,21 @@ public class User implements UserDetails {
         return email;
     }
 
+    @Column(name = "strength")
+    private Integer strength = 1;
+
+    @Column(name = "dexterity")
+    private Integer dexterity = 1;
+
+    @Column(name = "intelligence")
+    private Integer intelligence = 1;
+
+    @Column(name = "charisma")
+    private Integer charisma = 1;
+
+    @Column(name = "unallocated_points")
+    private Integer unallocatedPoints = 0;
+
     @Override
     public boolean isAccountNonExpired() {
         return true;

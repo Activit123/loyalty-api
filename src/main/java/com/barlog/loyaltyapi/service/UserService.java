@@ -2,6 +2,7 @@ package com.barlog.loyaltyapi.service;
 
 import com.barlog.loyaltyapi.dto.AllUsersDTO;
 import com.barlog.loyaltyapi.dto.ClaimRequestDto;
+import com.barlog.loyaltyapi.dto.PointDistributionDto;
 import com.barlog.loyaltyapi.dto.RegisterUserDto;
 import com.barlog.loyaltyapi.model.User;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,5 +17,5 @@ public interface UserService {
     User generateNewRecoveryKey(User currentUser);
     List<AllUsersDTO> getAllUsers();
 
-
+    void distributePoints(User user, PointDistributionDto request);
 }

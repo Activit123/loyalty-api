@@ -1,12 +1,9 @@
 package com.barlog.loyaltyapi.controller;
 
-import com.barlog.loyaltyapi.dto.ClassTypeDto;
-import com.barlog.loyaltyapi.dto.NicknameRequestDto;
-import com.barlog.loyaltyapi.dto.RaceDto;
-import com.barlog.loyaltyapi.dto.SelectClassRequestDto;
-import com.barlog.loyaltyapi.dto.SelectRaceRequestDto;
+import com.barlog.loyaltyapi.dto.*;
 import com.barlog.loyaltyapi.exception.ResourceNotFoundException;
 import com.barlog.loyaltyapi.model.User;
+import com.barlog.loyaltyapi.service.AdminService;
 import com.barlog.loyaltyapi.service.CharacterService;
 import com.barlog.loyaltyapi.service.UserService;
 import jakarta.validation.Valid;
@@ -24,6 +21,7 @@ public class CharacterController {
 
     private final CharacterService characterService;
     private final UserService userService;
+    private final AdminService adminService;
 
     // Endpoint public pentru a vedea informațiile despre rase
     @GetMapping("/races")
@@ -36,7 +34,13 @@ public class CharacterController {
     public ResponseEntity<List<ClassTypeDto>> getAllClassTypes() {
         return ResponseEntity.ok(characterService.getAllClassTypes());
     }
-
+    @PostMapping("/distribute-points")
+    public ResponseEntity<UserResponseDto> distributePoints(Authentication authentication, @RequestBody PointDistributionDto request) {
+        User user = (User) authentication.getPrincipal();
+      //  userService.distributePoints(user, request);
+        // Returnăm userul actualizat ca frontend-ul să vadă noile stats
+        return ResponseEntity.ok(adminService.mapUserToDto(user));
+    }
     // Endpoint securizat pentru ca un utilizator să-și aleagă rasa
     @PostMapping("/select-race")
     public ResponseEntity<String> selectRace(Authentication authentication, @RequestBody @Valid SelectRaceRequestDto request) {

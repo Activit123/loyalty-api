@@ -27,6 +27,8 @@ public class ShopService {
     private final UserInventoryItemRepository userInventoryItemRepository; // Injectează noul repo
     private final QuestService questService;
     private final UserNotificationService notificationService; // INJECTAT
+
+    private final BonusService bonusService;
     @Transactional
     public User purchaseProduct(Long productId, User currentUser) {
         // 1. Găsim produsul și verificăm dacă este valid
@@ -40,29 +42,44 @@ public class ShopService {
             throw new IllegalStateException("Stoc epuizat pentru acest produs.");
         }
 
-        // 2. Verificăm dacă utilizatorul are suficiente fonduri
-        if (currentUser.getCoins() < product.getBuyPrice()) {
-            throw new IllegalStateException("Fonduri insuficiente pentru a cumpăra acest produs.");
+        // --- 2. CALCUL PREȚ FINAL (CU DISCOUNT) ---
+        // Întrebăm BonusService cât discount are userul (de la Iteme + Clasă)
+        double totalDiscountPercent = bonusService.calculateFlatBonus(currentUser, ItemEffectType.SHOP_DISCOUNT_GLOBAL);
+
+        // Limităm discount-ul la maxim 90% (ca să nu fie gratis sau negativ)
+        if (totalDiscountPercent > 90) totalDiscountPercent = 90;
+
+        // Calculăm prețul redus
+        int originalPrice = product.getBuyPrice();
+        int finalPrice = (int) Math.round(originalPrice * (1 - (totalDiscountPercent / 100.0)));
+
+        // Verificăm prețul să nu fie negativ (just in case)
+        if (finalPrice < 0) finalPrice = 0;
+
+        // --- 3. VERIFICARE FONDURI PE PREȚUL REDUS ---
+        if (currentUser.getCoins() < finalPrice) {
+            throw new IllegalStateException("Fonduri insuficiente pentru a cumpăra acest produs. Cost: " + finalPrice);
         }
 
-        // NOUA VALIDARE PENTRU PREȚ NEGATIV
-        if (product.getBuyPrice() < 0) {
-            throw new IllegalStateException("Eroare de configurare: Prețul produsului nu poate fi negativ.");
-        }
-
-        // 3. Procesăm tranzacția
-        currentUser.setCoins(currentUser.getCoins() - product.getBuyPrice());
+        // --- 4. PROCESARE TRANZACȚIE ---
+        currentUser.setCoins(currentUser.getCoins() - finalPrice);
 
         // Decrementăm stocul dacă nu este nelimitat
         if (product.getStock() != -1) {
             product.setStock(product.getStock() - 1);
         }
 
-        // 4. Creăm înregistrări în istoric
+        // Creăm descrierea pentru istoric (menționăm reducerea dacă există)
+        String description = "Cumpărat produs: " + product.getName();
+        if (finalPrice < originalPrice) {
+            description += String.format(" (Redus: %d -> %d)", originalPrice, finalPrice);
+        }
+
+        // Creăm înregistrări în istoric cu PREȚUL FINAL
         CoinTransaction transaction = CoinTransaction.builder()
                 .user(currentUser)
-                .amount(-product.getBuyPrice())
-                .description("Cumpărat produs: " + product.getName())
+                .amount(-finalPrice) // Scădem suma redusă
+                .description(description)
                 .transactionType("SHOP_PURCHASE")
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -71,14 +88,14 @@ public class ShopService {
         ShopPurchase purchase = ShopPurchase.builder()
                 .user(currentUser)
                 .product(product)
-                .costAtPurchase(product.getBuyPrice())
+                .costAtPurchase(finalPrice) // Salvăm cât a costat efectiv
                 .purchasedAt(LocalDateTime.now())
                 .build();
         ShopPurchase savedPurchase = shopPurchaseRepository.save(purchase);
+
         UserInventoryItem newItem = UserInventoryItem.builder()
                 .user(currentUser)
                 .product(product)
-                // NOU: Itemele cumpărate trebuie să aibă purchase_id
                 .purchase(savedPurchase)
                 .status("IN_INVENTORY")
                 .build();
@@ -86,9 +103,10 @@ public class ShopService {
 
         // Salvăm entitățile modificate
         productRepository.save(product);
-        experienceService.addExperienceForShopPurchase(currentUser, product.getBuyPrice(), product.getCategory());
 
-        // ELIMINAT: Apelul questService.updateQuestProgress(...)
+        // La XP, de obicei se dă pe baza prețului întreg sau redus?
+        // De regulă, la loialitate primești XP pe cât ai cheltuit efectiv.
+        experienceService.addExperienceForShopPurchase(currentUser, finalPrice, product.getCategory());
 
         return userRepository.save(currentUser);
     }

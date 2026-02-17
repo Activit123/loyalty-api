@@ -3,9 +3,7 @@ package com.barlog.loyaltyapi.service;
 import com.barlog.loyaltyapi.dto.*;
 import com.barlog.loyaltyapi.exception.ResourceNotFoundException;
 import com.barlog.loyaltyapi.model.*;
-
 import com.barlog.loyaltyapi.repository.*;
-import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
@@ -23,13 +21,16 @@ public class TradeService {
     // --- Dependențe ---
     private final TradeRepository tradeRepository;
     private final TradeOfferItemRepository offerItemRepository;
-    private final UserInventoryItemRepository inventoryItemRepository;
+    private final UserInventoryItemRepository inventoryItemRepository; // Doar produse fizice
     private final UserRepository userRepository;
     private final CoinTransactionRepository coinTransactionRepository;
     private final AdminService adminService;
     private final InventoryService inventoryService;
     private final EntityManager entityManager;
-    private final UserNotificationService notificationService; // INJECTAT
+    private final UserNotificationService notificationService;
+
+    // AM SCOS: UserItemRepository și ItemService (nu mai sunt necesare fără iteme RPG)
+
     // --- Helpers ---
     private User findUserByIdentifier(String identifier) {
         return userRepository.findByEmail(identifier)
@@ -46,74 +47,89 @@ public class TradeService {
         return trade;
     }
 
-    // NOU: Validarea ofertei cu excluderea trade-ului curent
-    private void validateOffer(User user, Integer coins, List<Long> itemIds, Long currentTradeId) {
-        // 1. Validare monede
+    // --- 1. VALIDARE (Doar Monede + Produse Fizice) ---
+    // Am scos parametrul userItemIds
+    private void validateOffer(User user, Integer coins, List<Long> invItemIds, Long currentTradeId) {
+
+        // A. Validare monede
         if (coins != null && coins > 0 && user.getCoins() < coins) {
-            throw new IllegalStateException("Fonduri insuficiente! Utilizatorul " + user.getNickname() + " nu are " + coins + " monede.");
+            throw new IllegalStateException("Fonduri insuficiente! Utilizatorul " + user.getEmail() + " nu are " + coins + " monede.");
         }
 
-        // 2. Validare iteme din inventar
-        if (itemIds != null && !itemIds.isEmpty()) {
-            List<UserInventoryItem> items = inventoryItemRepository.findAllById(itemIds);
-            if (items.size() != itemIds.size()) {
-                throw new ResourceNotFoundException("Unul sau mai multe iteme din ofertă nu au fost găsite.");
+        // B. Validare produse fizice (InventoryItem)
+        if (invItemIds != null && !invItemIds.isEmpty()) {
+            List<UserInventoryItem> items = inventoryItemRepository.findAllById(invItemIds);
+
+            // Verificăm dacă toate ID-urile au fost găsite
+            if (items.size() != invItemIds.size()) {
+                throw new ResourceNotFoundException("Unul sau mai multe produse fizice din ofertă nu au fost găsite.");
             }
 
-            boolean allOwned = items.stream().allMatch(item -> item.getUser().equals(user) && "IN_INVENTORY".equals(item.getStatus()));
+            // Verificăm ownership și status
+            boolean allOwned = items.stream().allMatch(item -> item.getUser().getId().equals(user.getId()) && "IN_INVENTORY".equals(item.getStatus()));
             if (!allOwned) {
-                throw new IllegalStateException("Unul sau mai multe iteme nu vă aparțin sau nu sunt disponibile.");
+                throw new IllegalStateException("Nu deții toate produsele fizice selectate sau au fost deja folosite.");
             }
-
-            items.forEach(item -> {
-                // Verifică în alte trade-uri active (t.id <> currentTradeId)
-                if (tradeRepository.findActiveTradeByItemAndUser(user, item.getId(), currentTradeId).isPresent()) {
-                    throw new EntityExistsException("Itemul " + item.getProduct().getName() + " este deja în alt trade activ.");
-                }
-            });
         }
     }
 
-    // NOU: Salvează/Actualizează itemele în TradeOfferItem
-    private void saveOfferItems(Trade trade, User user, Integer coins, List<Long> itemIds) {
-        // Șterge orice ofertă veche
+    // --- 2. SALVARE OFERTĂ (Doar Monede + Produse Fizice) ---
+    // Am scos parametrul userItemIds
+    private void saveOfferItems(Trade trade, User user, Integer coins, List<Long> invItemIds) {
+        // Șterge orice ofertă veche a acestui user pentru acest trade
         offerItemRepository.deleteByTradeAndUser(trade, user);
 
-        // 1. Salvează Monedele
+        // A. Salvează Monede
         if (coins != null && coins > 0) {
-            TradeOfferItem coinsOffer = TradeOfferItem.builder()
+            offerItemRepository.save(TradeOfferItem.builder()
                     .trade(trade)
                     .user(user)
                     .itemType(TradeOfferItemType.COINS)
                     .offeredAmount(coins)
-                    .build();
-            offerItemRepository.save(coinsOffer);
+                    .build());
         }
 
-        // 2. Salvează Itemele din Inventar
-        if (itemIds != null && !itemIds.isEmpty()) {
-            List<UserInventoryItem> items = inventoryItemRepository.findAllById(itemIds);
+        // B. Salvează Produse Fizice
+        if (invItemIds != null && !invItemIds.isEmpty()) {
+            List<UserInventoryItem> items = inventoryItemRepository.findAllById(invItemIds);
             items.forEach(item -> {
-                TradeOfferItem itemOffer = TradeOfferItem.builder()
+                offerItemRepository.save(TradeOfferItem.builder()
                         .trade(trade)
                         .user(user)
                         .itemType(TradeOfferItemType.INVENTORY_ITEM)
                         .inventoryItem(item)
-                        .build();
-                offerItemRepository.save(itemOffer);
+                        .build());
             });
         }
     }
 
+    // --- 3. MAPPER DTO ---
     private TradeOfferItemDto mapOfferItemToDto(TradeOfferItem item) {
         TradeOfferItemDto dto = new TradeOfferItemDto();
         dto.setId(item.getId());
         dto.setItemType(item.getItemType());
         dto.setOfferedAmount(item.getOfferedAmount());
-        if (item.getInventoryItem() != null) {
+
+        // Doar Produs Fizic
+        if (item.getItemType() == TradeOfferItemType.INVENTORY_ITEM && item.getInventoryItem() != null) {
             dto.setInventoryItem(inventoryService.mapToDto(item.getInventoryItem()));
         }
+
         return dto;
+    }
+
+    // --- 4. TRANSFER PROPRIETATE ---
+    private void transferItems(List<TradeOfferItemDto> senderOffer, User receiver) {
+        for (TradeOfferItemDto offerItem : senderOffer) {
+
+            // Doar Produs Fizic (InventoryItem)
+            if (offerItem.getItemType() == TradeOfferItemType.INVENTORY_ITEM) {
+                UserInventoryItem item = inventoryItemRepository.findById(offerItem.getInventoryItem().getId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Produs fizic negăsit."));
+                item.setUser(receiver);
+                inventoryItemRepository.save(item);
+            }
+        }
     }
 
     private void processUserTrade(User sender, List<TradeOfferItemDto> senderOffer, User receiver) {
@@ -127,7 +143,7 @@ public class TradeService {
             coinTransactionRepository.save(CoinTransaction.builder()
                     .user(sender)
                     .amount(-coinsOffered)
-                    .description("Trade OUT către " + receiver.getNickname())
+                    .description("Trade OUT către " + receiver.getEmail())
                     .transactionType("TRADE_OUT")
                     .createdAt(LocalDateTime.now())
                     .build());
@@ -136,7 +152,7 @@ public class TradeService {
             coinTransactionRepository.save(CoinTransaction.builder()
                     .user(receiver)
                     .amount(coinsOffered)
-                    .description("Trade IN de la " + sender.getNickname())
+                    .description("Trade IN de la " + sender.getEmail())
                     .transactionType("TRADE_IN")
                     .createdAt(LocalDateTime.now())
                     .build());
@@ -146,29 +162,17 @@ public class TradeService {
         }
     }
 
-    private void moveInventoryItems(User sender, List<TradeOfferItemDto> senderOffer, User receiver) {
-        senderOffer.stream()
-                .filter(item -> item.getItemType() == TradeOfferItemType.INVENTORY_ITEM)
-                .forEach(itemDto -> {
-                    UserInventoryItem item = inventoryItemRepository.findById(itemDto.getInventoryItem().getId())
-                            .orElseThrow(() -> new ResourceNotFoundException("Item de inventar negăsit la finalizare trade."));
-
-                    item.setUser(receiver);
-                    inventoryItemRepository.save(item);
-                });
-    }
-
-    // --- Funcționalități Expuse ---
+    // --- FUNCȚIONALITĂȚI PUBLICE ---
 
     @Transactional
     public TradeDetailsDto initiateTrade(User initiator, TradeInitiateRequest request) {
         User recipient = findUserByIdentifier(request.getRecipientIdentifier());
 
-        if (initiator.equals(recipient)) {
+        if (initiator.getId().equals(recipient.getId())) {
             throw new IllegalStateException("Nu poți tranzacționa cu tine însuți.");
         }
 
-        // 0L pentru inițiere, trade-ul nu există încă
+        // Ignorăm request.getOfferedUserItemIds() aici
         validateOffer(initiator, request.getOfferedCoins(), request.getOfferedInventoryItemIds(), 0L);
 
         Trade newTrade = Trade.builder()
@@ -180,10 +184,11 @@ public class TradeService {
                 .build();
         Trade savedTrade = tradeRepository.save(newTrade);
 
+        // Salvăm doar monede și produse fizice
         saveOfferItems(savedTrade, initiator, request.getOfferedCoins(), request.getOfferedInventoryItemIds());
-        User rec = findUserByIdentifier(request.getRecipientIdentifier());
+
         notificationService.notifyUser(
-                rec,
+                recipient,
                 initiator.getNickname() + " vrea să facă un schimb cu tine!",
                 NotificationType.TRADE_OFFER,
                 "/trade"
@@ -195,47 +200,31 @@ public class TradeService {
     public TradeDetailsDto makeOffer(User user, Long tradeId, TradeOfferRequest request) {
         Trade trade = findActiveTrade(tradeId);
 
-        if (!trade.getInitiator().equals(user) && !trade.getRecipient().equals(user)) {
+        if (!trade.getInitiator().getId().equals(user.getId()) && !trade.getRecipient().getId().equals(user.getId())) {
             throw new IllegalStateException("Nu ești parte în această tranzacție.");
         }
 
-        // TRIMITERE ID: tradeId (pentru a exclude trade-ul curent din verificare)
+        // Ignorăm request.getOfferedUserItemIds()
         validateOffer(user, request.getOfferedCoins(), request.getOfferedInventoryItemIds(), tradeId);
-
-        // 1. Salvează oferta curentă
         saveOfferItems(trade, user, request.getOfferedCoins(), request.getOfferedInventoryItemIds());
 
-        // 2. Determină rolul și actualizează Agreed
-        boolean isInitiator = trade.getInitiator().equals(user);
-        User partner = trade.getInitiator().equals(user) ? trade.getRecipient() : trade.getInitiator();
+        boolean isInitiator = trade.getInitiator().getId().equals(user.getId());
+        User partner = isInitiator ? trade.getRecipient() : trade.getInitiator();
 
-        // NOTIFICARE:
         String message = request.isAcceptsFinalOffer()
                 ? user.getNickname() + " a ACCEPTAT oferta ta de schimb!"
                 : user.getNickname() + " a actualizat oferta de schimb.";
 
-        notificationService.notifyUser(
-                partner,
-                message,
-                NotificationType.TRADE_UPDATE,
-                "/trade"
-        );
+        notificationService.notifyUser(partner, message, NotificationType.TRADE_UPDATE, "/trade");
 
         if (isInitiator) {
             trade.setInitiatorAgreed(request.isAcceptsFinalOffer());
-            // Resetează acordul partenerului DOAR dacă initiatorul NU acceptă
-            if (!request.isAcceptsFinalOffer()) {
-                trade.setRecipientAgreed(false);
-            }
+            if (!request.isAcceptsFinalOffer()) trade.setRecipientAgreed(false);
         } else {
             trade.setRecipientAgreed(request.isAcceptsFinalOffer());
-            // Resetează acordul partenerului DOAR dacă recipientul NU acceptă
-            if (!request.isAcceptsFinalOffer()) {
-                trade.setInitiatorAgreed(false);
-            }
+            if (!request.isAcceptsFinalOffer()) trade.setInitiatorAgreed(false);
         }
 
-        // 3. Verifică starea finală (CRUCIAL PENTRU CONSENSUALITATE)
         if (trade.isInitiatorAgreed() && trade.isRecipientAgreed()) {
             trade.setStatus(TradeStatus.ACCEPTED);
         } else {
@@ -243,11 +232,37 @@ public class TradeService {
         }
 
         tradeRepository.save(trade);
-        if (trade.getStatus() == TradeStatus.ACCEPTED) {
-            // Opțional: Notifică ambii că e gata de finalizare
-            notificationService.notifyUser(user, "Trade-ul este ACCEPTAT! Poți finaliza schimbul.", NotificationType.TRADE_UPDATE, "/trade");
-            notificationService.notifyUser(partner, "Trade-ul este ACCEPTAT! Poți finaliza schimbul.", NotificationType.TRADE_UPDATE, "/trade");
+        return getTradeDetails(tradeId);
+    }
+
+    @Transactional
+    public TradeDetailsDto completeTrade(User user, Long tradeId) {
+        Trade trade = entityManager.find(Trade.class, tradeId, LockModeType.PESSIMISTIC_WRITE);
+
+        if (trade == null) throw new ResourceNotFoundException("Tranzacția nu a fost găsită.");
+        if (trade.getStatus() != TradeStatus.ACCEPTED) {
+            throw new IllegalStateException("Tranzacția nu este ACCEPTED și nu poate fi finalizată.");
         }
+
+        TradeDetailsDto details = getTradeDetails(tradeId);
+
+        User initiatorEntity = userRepository.findById(details.getInitiator().getId()).orElseThrow();
+        User recipientEntity = userRepository.findById(details.getRecipient().getId()).orElseThrow();
+
+        // Transferăm monedele
+        processUserTrade(initiatorEntity, details.getInitiatorOffer(), recipientEntity);
+        processUserTrade(recipientEntity, details.getRecipientOffer(), initiatorEntity);
+
+        // Transferăm produsele fizice
+        transferItems(details.getInitiatorOffer(), recipientEntity);
+        transferItems(details.getRecipientOffer(), initiatorEntity);
+
+        trade.setStatus(TradeStatus.COMPLETED);
+        tradeRepository.save(trade);
+
+        notificationService.notifyUser(trade.getInitiator(), "Trade finalizat cu succes!", NotificationType.TRADE_UPDATE, "/inventory");
+        notificationService.notifyUser(trade.getRecipient(), "Trade finalizat cu succes!", NotificationType.TRADE_UPDATE, "/inventory");
+
         return getTradeDetails(tradeId);
     }
 
@@ -255,7 +270,7 @@ public class TradeService {
     public void cancelTrade(User user, Long tradeId) {
         Trade trade = findActiveTrade(tradeId);
 
-        if (!trade.getInitiator().equals(user) && !trade.getRecipient().equals(user)) {
+        if (!trade.getInitiator().getId().equals(user.getId()) && !trade.getRecipient().getId().equals(user.getId())) {
             throw new IllegalStateException("Nu poți anula o tranzacție în care nu ești parte.");
         }
 
@@ -265,60 +280,12 @@ public class TradeService {
 
         offerItemRepository.deleteByTradeAndUser(trade, trade.getInitiator());
         offerItemRepository.deleteByTradeAndUser(trade, trade.getRecipient());
+
         trade.setStatus(TradeStatus.CANCELED);
-        User partner = trade.getInitiator().equals(user) ? trade.getRecipient() : trade.getInitiator();
-
-        // NOTIFICARE:
-        notificationService.notifyUser(
-                partner,
-                user.getNickname() + " a ANULAT schimbul.",
-                NotificationType.TRADE_UPDATE,
-                "/trade"
-        );
         tradeRepository.save(trade);
-    }
 
-    @Transactional
-    public TradeDetailsDto completeTrade(User user, Long tradeId) {
-        Trade trade = entityManager.find(Trade.class, tradeId, LockModeType.PESSIMISTIC_WRITE);
-
-        if (trade == null) {
-            throw new ResourceNotFoundException("Tranzacția nu a fost găsită.");
-        }
-        if (!trade.getInitiator().equals(user) && !trade.getRecipient().equals(user)) {
-            throw new IllegalStateException("Nu ești parte în această tranzacție.");
-        }
-        if (trade.getStatus() != TradeStatus.ACCEPTED) {
-            throw new IllegalStateException("Tranzacția nu este ACCEPTED și nu poate fi finalizată. Status: " + trade.getStatus().name());
-        }
-
-        TradeDetailsDto details = getTradeDetails(tradeId);
-
-        User initiatorEntity = userRepository.findById(details.getInitiator().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Initiator user not found"));
-        User recipientEntity = userRepository.findById(details.getRecipient().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Recipient user not found"));
-
-        processUserTrade(initiatorEntity, details.getInitiatorOffer(), recipientEntity);
-        processUserTrade(recipientEntity, details.getRecipientOffer(), initiatorEntity);
-
-        moveInventoryItems(initiatorEntity, details.getInitiatorOffer(), recipientEntity);
-        moveInventoryItems(recipientEntity, details.getRecipientOffer(), initiatorEntity);
-
-        trade.setStatus(TradeStatus.COMPLETED);
-        tradeRepository.save(trade);
-        TradeDetailsDto detail = getTradeDetails(tradeId);
-        UserResponseDto partner = detail.getInitiator().getId().equals(user.getId()) ? detail.getRecipient() : detail.getInitiator(); // Atenție: aici lucrezi cu DTO sau Entități? getTradeDetails returnează DTO, dar procesarea se face pe Entități. E mai sigur să iei partenerul din entitatea 'trade'.
-        User partnerEntity = trade.getInitiator().equals(user) ? trade.getRecipient() : trade.getInitiator();
-
-        // NOTIFICARE:
-        notificationService.notifyUser(
-                partnerEntity,
-                "Schimbul cu " + user.getNickname() + " a fost FINALIZAT cu succes! Verifică inventarul.",
-                NotificationType.TRADE_UPDATE,
-                "/inventory"
-        );
-        return getTradeDetails(tradeId);
+        User partner = trade.getInitiator().getId().equals(user.getId()) ? trade.getRecipient() : trade.getInitiator();
+        notificationService.notifyUser(partner, user.getNickname() + " a ANULAT schimbul.", NotificationType.TRADE_UPDATE, "/trade");
     }
 
     @Transactional
@@ -329,12 +296,12 @@ public class TradeService {
         List<TradeOfferItem> allOffers = offerItemRepository.findByTrade(trade);
 
         List<TradeOfferItemDto> initiatorOffer = allOffers.stream()
-                .filter(item -> item.getUser().equals(trade.getInitiator()))
+                .filter(item -> item.getUser().getId().equals(trade.getInitiator().getId()))
                 .map(this::mapOfferItemToDto)
                 .collect(Collectors.toList());
 
         List<TradeOfferItemDto> recipientOffer = allOffers.stream()
-                .filter(item -> item.getUser().equals(trade.getRecipient()))
+                .filter(item -> item.getUser().getId().equals(trade.getRecipient().getId()))
                 .map(this::mapOfferItemToDto)
                 .collect(Collectors.toList());
 

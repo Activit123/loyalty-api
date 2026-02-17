@@ -13,4 +13,16 @@ public class Race {
     @Column(columnDefinition = "TEXT") private String racialBenefit;
     private String loyaltyBonusCategory;
     private Double loyaltyBonusXpMultiplier;
+
+    @Column(name = "base_str")
+    private Integer baseStr;
+
+    @Column(name = "base_dex")
+    private Integer baseDex;
+
+    @Column(name = "base_int")
+    private Integer baseInt;
+
+    @Column(name = "base_cha")
+    private Integer baseCha;
 }

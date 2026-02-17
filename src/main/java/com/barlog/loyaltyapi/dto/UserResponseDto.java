@@ -24,5 +24,10 @@ public class UserResponseDto {
     private LevelInfoDto levelInfo;
     private String avatarUrl;
     private String recoveryKey;
+    private Integer strength;
+    private Integer dexterity;
+    private Integer intelligence;
+    private Integer charisma;
+    private Integer unallocatedPoints;
 
 }

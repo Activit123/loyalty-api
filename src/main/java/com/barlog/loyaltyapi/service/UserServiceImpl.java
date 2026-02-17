@@ -1,9 +1,6 @@
 package com.barlog.loyaltyapi.service;
 
-import com.barlog.loyaltyapi.dto.AllUsersDTO;
-import com.barlog.loyaltyapi.dto.ClaimRequestDto;
-import com.barlog.loyaltyapi.dto.RaceDto;
-import com.barlog.loyaltyapi.dto.RegisterUserDto;
+import com.barlog.loyaltyapi.dto.*;
 import com.barlog.loyaltyapi.model.*;
 import com.barlog.loyaltyapi.repository.CoinTransactionRepository;
 import com.barlog.loyaltyapi.repository.UserRepository;
@@ -30,6 +27,7 @@ public class UserServiceImpl implements UserService {
     private final ExperienceService experienceService;
     private final FileStorageService fileStorageService;
  //   private final BonusService bonusService;
+ private final BonusService bonusService;
     private final QuestService questService;
     @Override
     public User registerUser(RegisterUserDto registerUserDto) {
@@ -156,13 +154,14 @@ public class UserServiceImpl implements UserService {
         dto.setEmail(user.getEmail());
         dto.setFirstName(user.getFirstName());
         dto.setLastName(user.getLastName());
+        dto.setNickname(user.getNickname());
         return dto;
     }
 
 
 
 
-   /* @Override
+   @Override
     @Transactional
     public void distributePoints(User user, PointDistributionDto req) {
         // 1. Verificăm dacă sunt valori negative (nu poți scădea stat-uri ca să primești puncte înapoi)
@@ -190,6 +189,6 @@ public class UserServiceImpl implements UserService {
         user.setUnallocatedPoints(user.getUnallocatedPoints() - totalRequested);
 
         userRepository.save(user);
-    }*/
+    }
 
 }

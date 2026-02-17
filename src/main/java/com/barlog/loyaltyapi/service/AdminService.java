@@ -1,10 +1,6 @@
 package com.barlog.loyaltyapi.service;
 
-import com.barlog.loyaltyapi.dto.AddCoinsRequestDto;
-import com.barlog.loyaltyapi.dto.AdjustCoinsRequestDto;
-import com.barlog.loyaltyapi.dto.TransactionDetailsDto;
-import com.barlog.loyaltyapi.dto.UserLeaderboardDto;
-import com.barlog.loyaltyapi.dto.UserResponseDto;
+import com.barlog.loyaltyapi.dto.*;
 import com.barlog.loyaltyapi.model.*;
 import com.barlog.loyaltyapi.repository.CoinTransactionRepository;
 import com.barlog.loyaltyapi.repository.UserRepository;
@@ -16,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,7 +25,10 @@ public class AdminService {
     private final CharacterService characterService;
     private final FileStorageService fileStorageService; // ASIGURĂ-TE CĂ ACEASTA E INJECTATĂ
     private final UserNotificationService notificationService; // INJECTAT
+    private final Random random = new Random();
+    private final BonusService bonusService;
     private final ProductService productService;
+
     public UserResponseDto getUserById(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
@@ -42,34 +42,67 @@ public class AdminService {
         experienceService.addExperienceForReceiptClaim(user,request.amount());
 
 
-        return processCoinAddition(user, request);
-    }
+        return processCoinAddition(user, request.amount(), request.description());
+}
     // --- Metodă Nouă ---
     public UserResponseDto getUserByEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with email: " + email));
         return mapUserToDto(user);
     }
-    private UserResponseDto processCoinAddition(User user, AddCoinsRequestDto request) {
-        user.setCoins(user.getCoins() + request.amount());
+    // --- METODA PRIVATĂ ACTUALIZATĂ PENTRU LUCKY SCAN ---
+    private UserResponseDto processCoinAddition(User user, Integer baseAmount, String description) {
+        int finalAmount = baseAmount;
+        String finalDescription = description;
+
+        // Doar dacă adăugăm monede (nu dacă scădem)
+        if (baseAmount > 0) {
+            // 1. Verificăm șansa de LUCKY_SCAN
+            // Suma valorilor efectelor LUCKY_SCAN_BONUS (ex: inel cu 5.0 + amuletă cu 10.0 = 15.0 șansă)
+            double luckChance = bonusService.calculateFlatBonus(user, ItemEffectType.LUCKY_SCAN_BONUS);
+
+            // Generăm un număr între 0.0 și 100.0
+            double roll = random.nextDouble() * 100.0;
+
+            // Dacă roll-ul este sub șansă (ex: roll 12 < 15), userul a avut noroc
+            if (roll < luckChance) {
+                finalAmount += 1; // Adăugăm moneda extra
+                finalDescription += " (+1 Noroc)"; // Marcăm în istoric
+
+                // Opțional: Trimitem o notificare specială
+                notificationService.notifyUser(
+                        user,
+                        "Noroc Chior! Ai primit o monedă în plus de la echipamentul tău!",
+                        NotificationType.SYSTEM,
+                        "/profile"
+                );
+            }
+        }
+
+        user.setCoins(user.getCoins() + finalAmount);
+
         CoinTransaction transaction = CoinTransaction.builder()
                 .user(user)
-                .amount(request.amount())
-                .description(request.description())
-                .transactionType(request.amount() > 0 ? "ADMIN_ADD" : "ADMIN_REMOVE")
+                .amount(finalAmount)
+                .description(finalDescription)
+                .transactionType(finalAmount > 0 ? "ADMIN_ADD" : "ADMIN_REMOVE")
                 .createdAt(LocalDateTime.now())
                 .build();
         coinTransactionRepository.save(transaction);
-        notificationService.notifyUser(
-                user,
-                "Ai primit " + request.amount() + " Monede! (" + request.description() + ")",
-                NotificationType.SYSTEM,
-                "/profile"
-        );
-        User updatedUser = userRepository.save(user);
 
+        if (finalAmount > 0) {
+            notificationService.notifyUser(
+                    user,
+                    "Ai primit " + finalAmount + " Monede! (" + finalDescription + ")",
+                    NotificationType.SYSTEM,
+                    "/profile"
+            );
+        }
+
+        User updatedUser = userRepository.save(user);
         return mapUserToDto(updatedUser);
     }
+
     @Transactional
     public UserResponseDto addCoinsToUser(Long userId, AddCoinsRequestDto request) {
         User user = userRepository.findById(userId)
@@ -172,6 +205,11 @@ public class AdminService {
         dto.setRace(user.getRace() != null ? characterService.mapToRaceDto(user.getRace()) : null);
         dto.setClassType(user.getClassType() != null ? characterService.mapToClassTypeDto(user.getClassType()) : null);
         dto.setLevelInfo(levelService.calculateLevelInfo(user.getExperience()));
+        dto.setStrength(user.getStrength());
+        dto.setDexterity(user.getDexterity());
+        dto.setIntelligence(user.getIntelligence());
+        dto.setCharisma(user.getCharisma());
+        dto.setUnallocatedPoints(user.getUnallocatedPoints());
         // NOU: Maparea Avatarului
         if (user.getAvatarUrl() != null && !user.getAvatarUrl().isEmpty()) {
             dto.setAvatarUrl(fileStorageService.getImageUrlFromPublicId(user.getAvatarUrl()));
@@ -180,5 +218,34 @@ public class AdminService {
         }
         dto.setRecoveryKey(user.getRecoveryKey());
         return dto;
+    }
+
+    @Transactional
+    public void recalculateStatsForEveryone() {
+        List<User> allUsers = userRepository.findAll();
+
+        for (User user : allUsers) {
+            // 1. Reset la baza rasei (sau 1 dacă nu are rasă)
+            if (user.getRace() != null) {
+                user.setStrength(user.getRace().getBaseStr());
+                user.setDexterity(user.getRace().getBaseDex());
+                user.setIntelligence(user.getRace().getBaseInt());
+                user.setCharisma(user.getRace().getBaseCha());
+            } else {
+                user.setStrength(1);
+                user.setDexterity(1);
+                user.setIntelligence(1);
+                user.setCharisma(1);
+            }
+
+            // 2. Calcul puncte de nivel
+            // Formula: (Level - 1) * 5
+            LevelInfoDto levelInfo = levelService.calculateLevelInfo(user.getExperience());
+            int pointsEarned = (levelInfo.getLevel() - 1) * 5;
+
+            user.setUnallocatedPoints(pointsEarned);
+
+            userRepository.save(user);
+        }
     }
 }

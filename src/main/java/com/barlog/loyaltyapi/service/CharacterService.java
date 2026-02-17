@@ -1,6 +1,7 @@
 package com.barlog.loyaltyapi.service;
 
 import com.barlog.loyaltyapi.dto.ClassTypeDto;
+import com.barlog.loyaltyapi.dto.LevelInfoDto;
 import com.barlog.loyaltyapi.dto.RaceDto;
 import com.barlog.loyaltyapi.exception.ResourceNotFoundException;
 import com.barlog.loyaltyapi.model.ClassType;
@@ -44,15 +45,27 @@ public class CharacterService {
     @Transactional
     public User selectRace(User currentUser, Long raceId) {
         if (currentUser.getRace() != null) {
-            throw new IllegalStateException("Rasa a fost deja aleasă și nu poate fi schimbată.");
+            throw new IllegalStateException("Rasa a fost deja aleasă.");
         }
         Race selectedRace = raceRepository.findById(raceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Rasa cu ID-ul " + raceId + " nu a fost găsită."));
-        
+                .orElseThrow(() -> new ResourceNotFoundException("Rasa nu există."));
+
         currentUser.setRace(selectedRace);
+
+        // --- SETARE ATRIBUTE DE BAZĂ ---
+        currentUser.setStrength(selectedRace.getBaseStr());
+        currentUser.setDexterity(selectedRace.getBaseDex());
+        currentUser.setIntelligence(selectedRace.getBaseInt());
+        currentUser.setCharisma(selectedRace.getBaseCha());
+
+        // --- CALCUL PUNCTE RETROACTIVE ---
+        // Dacă userul are deja nivel mare (ex: lvl 5), primește punctele pentru nivelele 2,3,4,5
+        LevelInfoDto levelInfo = levelService.calculateLevelInfo(currentUser.getExperience());
+        int points = (levelInfo.getLevel() - 1) * 5;
+        currentUser.setUnallocatedPoints(points);
+
         return userRepository.save(currentUser);
     }
-
     @Transactional
     public User selectClass(User currentUser, Long classId) {
         if (currentUser.getClassType() != null) {

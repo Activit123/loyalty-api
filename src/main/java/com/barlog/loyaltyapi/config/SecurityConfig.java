@@ -38,6 +38,7 @@ public class SecurityConfig {
     private static final String[] PUBLIC_URLS = {
             // Swagger / OpenAPI / SpringDoc
             "/api/admin/quests/sync-users",
+            "/api/users/getAllUsers",
             "/swagger-ui.html",
             "/swagger-ui/**",
             "/api/character/**",
