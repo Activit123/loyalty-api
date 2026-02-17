@@ -1,6 +1,8 @@
 package com.barlog.loyaltyapi.service;
 
+import com.barlog.loyaltyapi.dto.AllUsersDTO;
 import com.barlog.loyaltyapi.dto.ClaimRequestDto;
+import com.barlog.loyaltyapi.dto.RaceDto;
 import com.barlog.loyaltyapi.dto.RegisterUserDto;
 import com.barlog.loyaltyapi.model.*;
 import com.barlog.loyaltyapi.repository.CoinTransactionRepository;
@@ -11,10 +13,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor // 1. Adaugă adnotarea Lombok
@@ -129,10 +132,32 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public User generateNewRecoveryKey(User currentUser) {
-        return null;
+        // 1. Generare nouă cheie (UUID scurtat la 8 caractere)
+        String newKey = java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+
+        // 2. Aplică cheia și resetează 'lastUsed' pentru a o face validă
+        currentUser.setRecoveryKey(newKey);
+        currentUser.setRecoveryKeyLastUsed(null); // Marchează ca disponibilă pentru utilizare
+
+        return userRepository.save(currentUser);
     }
 
+    @Override
+    public List<AllUsersDTO> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(this::mapToAllUsersDto)
+                .collect(Collectors.toList());
+    }
+    protected AllUsersDTO mapToAllUsersDto(User user) {
+        AllUsersDTO dto = new AllUsersDTO();
+        dto.setId(user.getId());
+        dto.setEmail(user.getEmail());
+        dto.setFirstName(user.getFirstName());
+        dto.setLastName(user.getLastName());
+        return dto;
+    }
 
 
 
