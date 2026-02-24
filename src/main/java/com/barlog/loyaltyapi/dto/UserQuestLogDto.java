@@ -14,9 +14,14 @@ public class UserQuestLogDto {
     private String status; // ACTIVE, COMPLETED, REWARDED
     private LocalDate startDate;
     private LocalDateTime completionDate;
-    // NOU: Câmpuri pentru Recompense
+
+    // --- Recompense ---
     private Integer rewardCoins;
     private Double rewardXp;
-    private String rewardProductName;
-    private List<UserCriterionProgressDto> criterionProgress; 
+    private String rewardProductName; // Produs Fizic
+
+    // ADĂUGAT: Numele item-ului RPG pentru afișare
+    private String rewardItemName;
+
+    private List<UserCriterionProgressDto> criterionProgress;
 }

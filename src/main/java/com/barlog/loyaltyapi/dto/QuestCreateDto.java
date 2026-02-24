@@ -17,7 +17,7 @@ public class QuestCreateDto {
     @Min(0) private Integer rewardCoins;
     @Min(0) private Double rewardXp;
     private Long rewardProductId;
-    
+    private Long rewardItemTemplateId; // ID-ul itemului de dat ca premiu
     private boolean isActive = true;
     
     // Lista de Criterii (Cererile multiple)

@@ -58,8 +58,7 @@ public class ProductService {
         if (lowerDesc.startsWith("revendicare:")) {
             productName = productName.substring("revendicare:".length()).trim();
         }
-        // 2. NOU: Verifică formatul de Cumpărare (Shop App)
-        // Verificăm și varianta cu diacritice și fără, pentru siguranță
+        // 2. Verifică formatul de Cumpărare (Shop App)
         else if (lowerDesc.startsWith("cumpărat produs:")) {
             productName = productName.substring("Cumpărat produs:".length()).trim();
         }
@@ -71,7 +70,14 @@ public class ProductService {
             return null;
         }
 
-        // 3. Caută produsul după numele exact extras
+        // --- FIX CRITIC: Eliminăm partea cu "(Redus: ...)" dacă există ---
+        // Altfel, căutarea în DB eșuează pentru că numele produsului ar include și textul reducerii
+        if (productName.contains(" (Redus:")) {
+            productName = productName.substring(0, productName.indexOf(" (Redus:")).trim();
+        }
+        // ----------------------------------------------------------------
+
+        // 3. Caută produsul după numele exact extras și curățat
         return productRepository.findByName(productName)
                 .orElse(null);
     }

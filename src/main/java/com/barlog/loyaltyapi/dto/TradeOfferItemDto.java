@@ -10,4 +10,5 @@ public class TradeOfferItemDto {
     private TradeOfferItemType itemType;
     private Integer offeredAmount; // Număr de monede
     private InventoryItemDto inventoryItem; // Item complet (dacă e cazul)
+    private UserItemDto userItem; // Item RPG
 }

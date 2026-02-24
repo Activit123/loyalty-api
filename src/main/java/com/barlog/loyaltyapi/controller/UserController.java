@@ -1,7 +1,9 @@
 package com.barlog.loyaltyapi.controller;
 
 import com.barlog.loyaltyapi.dto.*;
+import com.barlog.loyaltyapi.model.CoinTransaction;
 import com.barlog.loyaltyapi.model.User;
+import com.barlog.loyaltyapi.repository.CoinTransactionRepository;
 import com.barlog.loyaltyapi.service.AdminService;
 import com.barlog.loyaltyapi.service.BonusService;
 import com.barlog.loyaltyapi.service.UserService; // Importăm interfața, nu implementarea
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
@@ -28,7 +31,7 @@ public class UserController {
     private final AdminService adminService;
     private final BonusService bonusService;
     private static final Logger log = LoggerFactory.getLogger(UserController.class);
-
+    private final CoinTransactionRepository coinTransactionRepository;
 
     @GetMapping("/getAllUsers")
     public ResponseEntity<List<AllUsersDTO>> getAllUsers(){
@@ -96,6 +99,25 @@ public class UserController {
         // Returnăm userul actualizat pentru a se reflecta în UI instant
         return ResponseEntity.ok(adminService.mapUserToDto(user));
     }
+    @GetMapping("/me/transactions")
+    public ResponseEntity<List<TransactionDetailsDto>> getMyTransactions(Authentication authentication) {
+        User currentUser = (User) authentication.getPrincipal();
+
+        List<CoinTransaction> transactions = coinTransactionRepository.findByUserOrderByCreatedAtDesc(currentUser);
+
+        List<TransactionDetailsDto> dtos = transactions.stream()
+                .map(t -> new TransactionDetailsDto(
+                        t.getId(),
+                        t.getUser().getEmail(),
+                        t.getAmount(),
+                        t.getCreatedAt(),
+                        t.getDescription()
+                ))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
+    }
+
     @PutMapping("/me/nickname")
     public ResponseEntity<?> updateUserNickname(Authentication authentication, @RequestBody @Valid NicknameRequestDto nicknameDto) {
         User currentUser = (User) authentication.getPrincipal();

@@ -1,10 +1,8 @@
 package com.barlog.loyaltyapi.controller;
 
-import com.barlog.loyaltyapi.dto.AddCoinsRequestDto;
-import com.barlog.loyaltyapi.dto.AdjustCoinsRequestDto;
-import com.barlog.loyaltyapi.dto.ManualXpRequestDto;
-import com.barlog.loyaltyapi.dto.UserResponseDto;
+import com.barlog.loyaltyapi.dto.*;
 import com.barlog.loyaltyapi.service.AdminService;
+import com.barlog.loyaltyapi.service.QuestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminActionsController {
     private final AdminService adminService;
-
+    private final QuestService questService;
     @GetMapping("/users/{userId}")
     public ResponseEntity<UserResponseDto> getUserDetails(@PathVariable Long userId) {
         UserResponseDto userDto = adminService.getUserById(userId);
@@ -28,6 +26,20 @@ public class AdminActionsController {
     public ResponseEntity<String> recalculateAllStats() {
         adminService.recalculateStatsForEveryone();
         return ResponseEntity.ok("Statistici și puncte recalculate pentru toți utilizatorii!");
+    }
+
+    // 1. Oferă Cadou (Item sau Produs)
+    @PostMapping("/gift")
+    public ResponseEntity<String> giftUser(@RequestBody AdminGiftRequest request) {
+        adminService.giftItemOrProduct(request);
+        return ResponseEntity.ok("Cadou trimis cu succes către " + request.getUserEmail());
+    }
+
+    // 2. Forțează Completare Quest
+    @PostMapping("/quest/force-complete")
+    public ResponseEntity<String> forceCompleteQuest(@RequestBody AdminQuestRequest request) {
+        questService.adminForceCompleteQuest(request.getUserEmail(), request.getQuestId());
+        return ResponseEntity.ok("Quest marcat ca fiind completat pentru " + request.getUserEmail());
     }
 
     @GetMapping("/users/by-email/{email}")

@@ -38,6 +38,29 @@ public class FileStorageService {
      * @param file The image file to upload.
      * @return The Cloudinary Public ID, which is returned by Cloudinary and should be stored in the DB.
      */
+
+    public String storeRawFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Fișierul nu poate fi gol.");
+        }
+
+        try {
+            // Specificăm resource_type: "raw" pentru fișiere non-media (APK)
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
+                    "resource_type", "raw",
+                    "use_filename", true,
+                    "unique_filename", false
+            ));
+
+            // Returnăm URL-ul complet securizat (https link direct)
+            return (String) uploadResult.get("secure_url");
+
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            throw new RuntimeException("Eroare la încărcarea fișierului pe Cloudinary.", ex);
+        }
+    }
+
     public String storeFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File cannot be null or empty.");

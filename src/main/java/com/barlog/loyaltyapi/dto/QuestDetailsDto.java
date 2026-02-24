@@ -12,10 +12,17 @@ public class QuestDetailsDto {
     private String description;
     private Integer durationDays;
     private QuestType type;
+
+    // Recompense
     private Integer rewardCoins;
     private Double rewardXp;
+
     private Long rewardProductId;
-    private String rewardProductName; // Numele produsului recompensă
+    private String rewardProductName;
+
+    // ADĂUGAT: ID-ul template-ului RPG (pentru Admin Edit)
+    private Long rewardItemTemplateId;
+
     private boolean isActive;
     private LocalDateTime createdAt;
     private List<QuestCriterionDto> criteria;

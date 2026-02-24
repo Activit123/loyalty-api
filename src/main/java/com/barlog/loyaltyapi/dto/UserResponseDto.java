@@ -14,6 +14,7 @@ public class UserResponseDto {
     // AM ȘTERS: private Boolean hasGoldSubscription;
     // AM ADĂUGAT:
     private Role role;
+    private boolean hasPrestige;
     private LocalDateTime createdAt;
     private String nickname;
     private Integer consecutiveActivityDays;

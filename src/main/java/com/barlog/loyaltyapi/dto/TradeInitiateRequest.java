@@ -13,4 +13,5 @@ public class TradeInitiateRequest {
     // Oferta inițială a inițiatorului (opțional)
     private Integer offeredCoins;
     private List<Long> offeredInventoryItemIds;
+    private List<Long> offeredUserItemIds; // Iteme RPG (Săbii, etc)
 }

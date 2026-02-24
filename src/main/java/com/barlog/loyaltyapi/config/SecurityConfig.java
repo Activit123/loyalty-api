@@ -37,7 +37,10 @@ public class SecurityConfig {
     // Array static pentru rutele publice (folosit pentru lizibilitate și mentenanță)
     private static final String[] PUBLIC_URLS = {
             // Swagger / OpenAPI / SpringDoc
+            "/api/app-version/latest",
+            "/barlog-app.apk", // Permitem și descărcarea fișierului static
             "/api/admin/quests/sync-users",
+            "/api/items/template/**", // <--- ADAUGĂ ACEASTA LINIE
             "/api/users/getAllUsers",
             "/swagger-ui.html",
             "/swagger-ui/**",

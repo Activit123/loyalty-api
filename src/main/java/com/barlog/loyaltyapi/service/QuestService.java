@@ -1,10 +1,6 @@
 package com.barlog.loyaltyapi.service;
 
-import com.barlog.loyaltyapi.dto.QuestCreateDto;
-import com.barlog.loyaltyapi.dto.QuestCriterionDto;
-import com.barlog.loyaltyapi.dto.QuestDetailsDto;
-import com.barlog.loyaltyapi.dto.UserCriterionProgressDto;
-import com.barlog.loyaltyapi.dto.UserQuestLogDto;
+import com.barlog.loyaltyapi.dto.*;
 import com.barlog.loyaltyapi.exception.ResourceNotFoundException;
 import com.barlog.loyaltyapi.model.*;
 import com.barlog.loyaltyapi.repository.*;
@@ -17,7 +13,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set; // IMPORT IMPORTANT
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,20 +23,25 @@ public class QuestService {
     private final QuestRepository questRepository;
     private final UserQuestLogRepository questLogRepository;
     private final UserCriterionProgressRepository criterionProgressRepository;
+    private final QuestCriterionRepository questCriterionRepository;
+
+    // Servicii externe
     private final InventoryService inventoryService;
     private final ExperienceService experienceService;
-    private final ProductRepository productRepository;
-    private final QuestCriterionRepository questCriterionRepository;
     private final BonusService bonusService;
-    // DEPENDENȚE PENTRU A RUPE CICLUL
     private final ProductService productService;
+    private final UserNotificationService notificationService;
+
+    // Repositoare externe
+    private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final CoinTransactionRepository coinTransactionRepository;
-    private final UserNotificationService notificationService; // INJECTAT
-    // --- 1. RESTAURARE: Dependențe necesare ---
     private final ItemTemplateRepository itemTemplateRepository;
     private final UserItemRepository userItemRepository;
-    // --- Mappers ---
+
+    // =================================================================================
+    // MAPPERS (DTO <-> Entity)
+    // =================================================================================
 
     private QuestCriterion mapToEntity(QuestCriterionDto dto, Quest quest) {
         Product targetProduct = dto.getTargetProductId() != null
@@ -65,6 +66,7 @@ public class QuestService {
         return dto;
     }
 
+    // Mapare pentru Admin (Editare/Vizualizare)
     private QuestDetailsDto mapToDetailsDto(Quest quest) {
         QuestDetailsDto dto = new QuestDetailsDto();
         dto.setId(quest.getId());
@@ -74,15 +76,21 @@ public class QuestService {
         dto.setType(quest.getType());
         dto.setRewardCoins(quest.getRewardCoins());
         dto.setRewardXp(quest.getRewardXp());
+
+        // Produs Fizic
         dto.setRewardProductId(quest.getRewardProduct() != null ? quest.getRewardProduct().getId() : null);
         dto.setRewardProductName(quest.getRewardProduct() != null ? quest.getRewardProduct().getName() : null);
+
+        // Item RPG
+        dto.setRewardItemTemplateId(quest.getRewardItemTemplate() != null ? quest.getRewardItemTemplate().getId() : null);
+
         dto.setActive(quest.isActive());
         dto.setCreatedAt(quest.getCreatedAt());
-        // Conversie Set -> List pentru DTO
         dto.setCriteria(quest.getCriteria().stream().map(this::mapToDto).collect(Collectors.toList()));
         return dto;
     }
 
+    // Mapare pentru User (Log-ul personal)
     private UserQuestLogDto mapToLogDto(UserQuestLog log) {
         UserQuestLogDto dto = new UserQuestLogDto();
         dto.setId(log.getId());
@@ -93,13 +101,14 @@ public class QuestService {
         dto.setStartDate(log.getStartDate());
         dto.setCompletionDate(log.getCompletionDate());
 
-        // Maparea Recompenselor
         Quest quest = log.getQuest();
         dto.setRewardCoins(quest.getRewardCoins());
         dto.setRewardXp(quest.getRewardXp());
         dto.setRewardProductName(quest.getRewardProduct() != null ? quest.getRewardProduct().getName() : null);
 
-        // Mapează progresul (Set -> List pentru DTO)
+        // Setăm numele item-ului RPG recompensă pentru afișare în UI
+        dto.setRewardItemName(quest.getRewardItemTemplate() != null ? quest.getRewardItemTemplate().getName() : null);
+
         dto.setCriterionProgress(log.getCriterionProgress().stream()
                 .map(this::mapProgressToDto)
                 .collect(Collectors.toList()));
@@ -112,7 +121,6 @@ public class QuestService {
         QuestCriterion criterion = progress.getCriterion();
 
         dto.setCriterionId(criterion.getId());
-
         dto.setCriterionType(criterion.getCriterionType().name());
         dto.setCurrentProgress(progress.getCurrentProgress());
         dto.setRequiredAmount(criterion.getRequiredAmount());
@@ -129,18 +137,27 @@ public class QuestService {
                 targetName
         ));
 
-        dto.setProgressPercentage((int) Math.min(100, (progress.getCurrentProgress() / criterion.getRequiredAmount()) * 100));
+        // Calcul procent (max 100%)
+        double percentage = (progress.getCurrentProgress() / criterion.getRequiredAmount()) * 100;
+        dto.setProgressPercentage((int) Math.min(100, percentage));
 
         return dto;
     }
 
-    // --- Admin CRUD ---
+    // =================================================================================
+    // ADMIN ACTIONS (CRUD)
+    // =================================================================================
 
     @Transactional
     public QuestDetailsDto createQuest(QuestCreateDto createDto) {
         Product rewardProduct = createDto.getRewardProductId() != null
                 ? productRepository.findById(createDto.getRewardProductId()).orElse(null)
                 : null;
+
+        ItemTemplate rewardItem = null;
+        if (createDto.getRewardItemTemplateId() != null) {
+            rewardItem = itemTemplateRepository.findById(createDto.getRewardItemTemplateId()).orElse(null);
+        }
 
         Quest quest = Quest.builder()
                 .title(createDto.getTitle())
@@ -150,12 +167,12 @@ public class QuestService {
                 .rewardCoins(createDto.getRewardCoins())
                 .rewardXp(createDto.getRewardXp())
                 .rewardProduct(rewardProduct)
+                .rewardItemTemplate(rewardItem) // Setare Item RPG
                 .isActive(createDto.isActive())
                 .build();
 
         Quest savedQuest = questRepository.save(quest);
 
-        // CORECTAT: Folosim Set și Collectors.toSet()
         Set<QuestCriterion> criteria = createDto.getCriteria().stream()
                 .map(dto -> {
                     QuestCriterion criterion = mapToEntity(dto, savedQuest);
@@ -166,47 +183,10 @@ public class QuestService {
 
         savedQuest.setCriteria(criteria);
 
+        // Atribuie quest-ul utilizatorilor existenți
         assignQuestToAllUsers(savedQuest);
 
         return mapToDetailsDto(savedQuest);
-    }
-
-    @Transactional
-    public void assignQuestToAllUsers(Quest newQuest) {
-        List<User> allUsers = userRepository.findAll();
-
-        for (User user : allUsers) {
-            boolean alreadyActive = questLogRepository
-                    .findByUserAndQuestIdAndStatus(user, newQuest.getId(), QuestStatus.ACTIVE)
-                    .isPresent();
-
-            if (!alreadyActive) {
-                UserQuestLog newLog = UserQuestLog.builder()
-                        .user(user)
-                        .quest(newQuest)
-                        .status(QuestStatus.ACTIVE)
-                        .startDate(LocalDate.now())
-                        .build();
-                UserQuestLog savedLog = questLogRepository.save(newLog);
-
-                initializeCriterionProgress(savedLog, newQuest.getCriteria());
-                // TRIMITE NOTIFICARE
-                notificationService.notifyUser(
-                        user,
-                        "Quest Nou Disponibil: " + newQuest.getTitle(),
-                        NotificationType.SYSTEM, // Sau un tip QUEST_NEW dacă îl adaugi în Enum
-                        "/quests"
-                );
-            }
-        }
-    }
-
-
-    public List<QuestDetailsDto> getAllQuestsForAdmin() {
-        // Conversie Set -> List implicită în Stream
-        return questRepository.findAllWithCriteria().stream()
-                .map(this::mapToDetailsDto)
-                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -230,46 +210,42 @@ public class QuestService {
             quest.setRewardProduct(null);
         }
 
+        // Update reward Item RPG
+        if (updateDto.getRewardItemTemplateId() != null) {
+            ItemTemplate rewardI = itemTemplateRepository.findById(updateDto.getRewardItemTemplateId()).orElse(null);
+            quest.setRewardItemTemplate(rewardI);
+        } else {
+            quest.setRewardItemTemplate(null);
+        }
+
         quest.setActive(updateDto.isActive());
 
-        // =================================================================================
-        // 2. GESTIONARE CRITERII (FIX "BULLETPROOF")
-        // =================================================================================
-
+        // 2. Gestionare Criterii (Ștergere vechi + Adăugare noi)
         // PAS A: Curățăm orice progres al utilizatorilor legat de criteriile ACESTUI quest.
-        // Este necesar pentru a nu avea erori de Foreign Key în baza de date.
-        List<QuestCriterion> currentCriteria = List.copyOf(quest.getCriteria()); // Copie sigură
+        List<QuestCriterion> currentCriteria = List.copyOf(quest.getCriteria());
         for (QuestCriterion oldCriterion : currentCriteria) {
             criterionProgressRepository.deleteByCriterion(oldCriterion);
         }
-        // FLUSH 1: Asigurăm că ștergerea progresului s-a propagat în DB
         criterionProgressRepository.flush();
 
-        // PAS B: Golim colecția părintelui.
-        // Datorită orphanRemoval=true, Hibernate va programa ștergerea criteriilor.
+        // PAS B: Golim colecția părintelui
         quest.getCriteria().clear();
-
-        // FLUSH 2: Forțăm Hibernate să execute DELETE-urile pentru criteriile vechi ACUM.
-        // Acest lucru previne conflictele dintre id-urile vechi și inserările noi în aceeași tranzacție.
         questRepository.flush();
 
         // PAS C: Adăugăm noile criterii
         if (updateDto.getCriteria() != null) {
             for (QuestCriterionDto dto : updateDto.getCriteria()) {
                 QuestCriterion criterion = mapToEntity(dto, quest);
-                criterion.setQuest(quest); // Legăm de părinte
-                quest.getCriteria().add(criterion); // Adăugăm în Set
+                criterion.setQuest(quest);
+                quest.getCriteria().add(criterion);
             }
         }
 
-        // Salvăm Părintele (CascadeType.ALL va salva noii copii)
         Quest updatedQuest = questRepository.save(quest);
 
-        // =================================================================================
-        // 3. REACTIVARE ȘI RE-INITIALIZARE PROGRES
-        // =================================================================================
+        // 3. Reactivare și Re-inițializare Progres pentru useri
         if (updatedQuest.isActive()) {
-            // A. Pentru cei cu quest EXPIRED -> Le facem ACTIVE
+            // A. Reactivare quest-uri expirate
             List<UserQuestLog> expiredLogs = questLogRepository.findByQuestIdAndStatus(questId, QuestStatus.EXPIRED);
             for (UserQuestLog log : expiredLogs) {
                 log.setStatus(QuestStatus.ACTIVE);
@@ -277,7 +253,6 @@ public class QuestService {
                 questLogRepository.save(log);
                 initializeCriterionProgress(log, updatedQuest.getCriteria());
 
-                // Notificare reactivare
                 notificationService.notifyUser(
                         log.getUser(),
                         "Quest Actualizat: " + updatedQuest.getTitle() + " este din nou disponibil!",
@@ -286,13 +261,11 @@ public class QuestService {
                 );
             }
 
-            // B. Pentru cei cu quest deja ACTIVE -> Re-inițializăm progresul
+            // B. Resetare quest-uri active (din cauza schimbării criteriilor)
             List<UserQuestLog> activeLogs = questLogRepository.findByQuestIdAndStatus(questId, QuestStatus.ACTIVE);
             for (UserQuestLog log : activeLogs) {
-                // Deoarece am șters progresul vechi la Pasul A, acest apel va crea intrările pentru noile criterii
                 initializeCriterionProgress(log, updatedQuest.getCriteria());
 
-                // Notificare modificare
                 notificationService.notifyUser(
                         log.getUser(),
                         "Quest Modificat: Obiectivele pentru '" + updatedQuest.getTitle() + "' s-au schimbat.",
@@ -304,6 +277,7 @@ public class QuestService {
 
         return mapToDetailsDto(updatedQuest);
     }
+
     @Transactional
     public void deleteQuest(Long questId) {
         Quest quest = questRepository.findById(questId)
@@ -313,19 +287,44 @@ public class QuestService {
         quest.setActive(false);
         questRepository.save(quest);
 
-        // 2. Caută toți utilizatorii care au acest quest ACTIV
+        // 2. Marchează log-urile userilor ca EXPIRED
         List<UserQuestLog> activeUserLogs = questLogRepository.findByQuestIdAndStatus(questId, QuestStatus.ACTIVE);
-
-        // 3. Marchează-le ca EXPIRED
         for (UserQuestLog log : activeUserLogs) {
             log.setStatus(QuestStatus.EXPIRED);
-            log.setCompletionDate(LocalDateTime.now()); // Setăm data pentru a apărea corect în istoric
+            log.setCompletionDate(LocalDateTime.now());
             questLogRepository.save(log);
         }
     }
 
+    public List<QuestDetailsDto> getAllQuestsForAdmin() {
+        return questRepository.findAllWithCriteria().stream()
+                .map(this::mapToDetailsDto)
+                .collect(Collectors.toList());
+    }
 
-    // --- User Flow: Asignare și Progres ---
+    @Transactional
+    public void adminForceCompleteQuest(String userEmail, Long questId) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilizator negăsit: " + userEmail));
+
+        UserQuestLog log = questLogRepository.findByUserAndQuestIdAndStatus(user, questId, QuestStatus.ACTIVE)
+                .orElseThrow(() -> new ResourceNotFoundException("Acest utilizator nu are quest-ul activ (sau e deja completat)."));
+
+        log.setStatus(QuestStatus.COMPLETED);
+        log.setCompletionDate(LocalDateTime.now());
+        questLogRepository.save(log);
+
+        notificationService.notifyUser(
+                user,
+                "Quest Completat de Admin: " + log.getQuest().getTitle() + ". Intră să revendici recompensa!",
+                NotificationType.QUEST_COMPLETED,
+                "/quests"
+        );
+    }
+
+    // =================================================================================
+    // USER ACTIONS & LOGIC
+    // =================================================================================
 
     @Transactional
     public void assignActiveQuests(User user) {
@@ -337,6 +336,8 @@ public class QuestService {
                     .isPresent();
 
             if (!alreadyActive) {
+               // assignQuestToAllUsers(quest); // Folosim metoda generică, dar limitat la acest user în logică
+                // Mai eficient:
                 UserQuestLog newLog = UserQuestLog.builder()
                         .user(user)
                         .quest(quest)
@@ -344,13 +345,41 @@ public class QuestService {
                         .startDate(LocalDate.now())
                         .build();
                 UserQuestLog savedLog = questLogRepository.save(newLog);
-
                 initializeCriterionProgress(savedLog, quest.getCriteria());
             }
         }
     }
 
-    // CORECTAT: Acceptă Collection (Set)
+    @Transactional
+    public void assignQuestToAllUsers(Quest newQuest) {
+        List<User> allUsers = userRepository.findAll();
+
+        for (User user : allUsers) {
+            boolean alreadyActive = questLogRepository
+                    .findByUserAndQuestIdAndStatus(user, newQuest.getId(), QuestStatus.ACTIVE)
+                    .isPresent();
+
+            if (!alreadyActive) {
+                UserQuestLog newLog = UserQuestLog.builder()
+                        .user(user)
+                        .quest(newQuest)
+                        .status(QuestStatus.ACTIVE)
+                        .startDate(LocalDate.now())
+                        .build();
+                UserQuestLog savedLog = questLogRepository.save(newLog);
+
+                initializeCriterionProgress(savedLog, newQuest.getCriteria());
+
+                notificationService.notifyUser(
+                        user,
+                        "Quest Nou Disponibil: " + newQuest.getTitle(),
+                        NotificationType.SYSTEM,
+                        "/quests"
+                );
+            }
+        }
+    }
+
     private void initializeCriterionProgress(UserQuestLog log, Collection<QuestCriterion> criteria) {
         Long logId = log.getId();
 
@@ -366,25 +395,58 @@ public class QuestService {
         });
     }
 
-    // Metodă ON-DEMAND: Nu mai este apelată automat la purchase, ci doar la verificare
-    @Transactional
-    public void updateQuestProgress(User user, QuestType eventType, ProductCategory category, Long productId, double amount) {
-        // Această metodă a rămas pentru compatibilitate, dar logica principală
-        // ar trebui să fie în calculul On-Demand sau în apelurile directe
-        // din ShopService (dacă păstrezi logica bazată pe evenimente).
+    public List<UserQuestLogDto> getUserQuestLog(User user) {
+        List<UserQuestLog> logs = questLogRepository.findAllByUserAndStatusInForDisplay(user);
 
-        // DEOARECE AM TRECUT PE ISTORIC (On-Demand), această metodă este mai puțin critică
-        // pentru fluxul instant, dar poate fi păstrată pentru actualizări incrementale dacă dorești.
+        return logs.stream()
+                // Filtrăm REWARDED foarte vechi, dar păstrăm EXPIRED
+                .filter(log -> log.getStatus() != QuestStatus.REWARDED || log.getCompletionDate().isAfter(LocalDateTime.now().minusDays(30)))
+                .map(log -> {
+                    if (log.getStatus() == QuestStatus.EXPIRED) {
+                        return mapToLogDto(log);
+                    }
 
-        // ... (logica veche, ajustată la Set) ...
-        // Pentru moment, să ne bazăm pe getUserQuestLog care recalculează totul.
+                    // Logica de calcul progres "On-Demand"
+                    Set<UserCriterionProgress> currentProgressSet = log.getCriterionProgress();
+                    if (currentProgressSet == null || currentProgressSet.isEmpty()) {
+                        initializeCriterionProgress(log, log.getQuest().getCriteria());
+                        currentProgressSet = log.getCriterionProgress();
+                    }
+
+                    for (UserCriterionProgress p : currentProgressSet) {
+                        if (!p.getIsCompleted()) {
+                            // Calculăm progresul din istoric
+                            double historyProgress = calculateProgressFromHistory(user, p.getCriterion(), log.getStartDate().atStartOfDay());
+
+                            if (historyProgress > p.getCurrentProgress()) {
+                                p.setCurrentProgress(Math.min(historyProgress, p.getCriterion().getRequiredAmount()));
+                                p.setIsCompleted(historyProgress >= p.getCriterion().getRequiredAmount());
+                                criterionProgressRepository.save(p);
+                            }
+                        }
+                    }
+
+                    boolean allMet = !currentProgressSet.isEmpty() && currentProgressSet.stream().allMatch(UserCriterionProgress::getIsCompleted);
+
+                    if (allMet && log.getStatus() == QuestStatus.ACTIVE) {
+                        log.setStatus(QuestStatus.COMPLETED);
+                        log.setCompletionDate(LocalDateTime.now());
+                        questLogRepository.save(log);
+
+                        notificationService.notifyUser(
+                                user,
+                                "QUEST COMPLETAT: " + log.getQuest().getTitle() + "! Revendică recompensa acum.",
+                                NotificationType.QUEST_COMPLETED,
+                                "/quests"
+                        );
+                    }
+
+                    return mapToLogDto(log);
+                })
+                .collect(Collectors.toList());
     }
 
-    // --- Metodă care Calculează Progresul la Cerere (On-Demand) ---
-
-    // Aceasta este folosită intern de getUserQuestLog pentru afișare
     private double calculateProgressFromHistory(User user, QuestCriterion criterion, LocalDateTime startTime) {
-
         if (criterion.getCriterionType() == QuestType.BUY_PRODUCT_CATEGORY || criterion.getCriterionType() == QuestType.BUY_SPECIFIC_PRODUCT) {
 
             List<CoinTransaction> transactions = coinTransactionRepository.findPhysicalPurchasesByUserAfterDate(user, startTime);
@@ -407,46 +469,12 @@ public class QuestService {
         } else if (criterion.getCriterionType() == QuestType.GAIN_COINS) {
 
             List<CoinTransaction> transactions = coinTransactionRepository.findNetCoinGainsByUserAfterDate(user, startTime);
-
-            return transactions.stream()
-                    .mapToInt(CoinTransaction::getAmount)
-                    .sum();
-
+            return transactions.stream().mapToInt(CoinTransaction::getAmount).sum();
         }
 
         return 0.0;
     }
 
-    // --- User Flow: claimReward ---
-    @Scheduled(cron = "0 0 0 * * *")
-    @Transactional
-    public void expireOverdueQuests() {
-        System.out.println("--- CRON: Checking for expired quests... ---");
-
-        // 1. Preia toate quest-urile active ale utilizatorilor
-        List<UserQuestLog> activeLogs = questLogRepository.findAllActiveLogsWithQuest();
-        LocalDate today = LocalDate.now();
-        int expiredCount = 0;
-
-        for (UserQuestLog log : activeLogs) {
-            // 2. Calculează data limită
-            // Data limită = Data Start + Durata (zile)
-            int duration = log.getQuest().getDurationDays();
-            LocalDate expirationDate = log.getStartDate().plusDays(duration);
-
-            // 3. Verifică dacă a trecut timpul
-            // Dacă azi este DUPĂ data expirării
-            if (today.isAfter(expirationDate)) {
-                log.setStatus(QuestStatus.EXPIRED);
-                log.setCompletionDate(LocalDateTime.now()); // Setăm data expirării
-
-                questLogRepository.save(log);
-                expiredCount++;
-            }
-        }
-
-        System.out.println("--- CRON: Expired " + expiredCount + " quests. ---");
-    }
     @Transactional
     public UserQuestLogDto claimReward(User user, Long userQuestLogId) {
         UserQuestLog log = questLogRepository.findById(userQuestLogId)
@@ -460,8 +488,6 @@ public class QuestService {
         }
 
         Quest quest = log.getQuest();
-
-        // --- 2. RESTAURARE: Calcul Multiplicator Recompense ---
         double questMultiplier = bonusService.calculateMultiplier(user, ItemEffectType.QUEST_REWARD_BOOST, null);
 
         // A. Monede
@@ -490,14 +516,17 @@ public class QuestService {
             experienceService.addExperience(user, finalXp, "QUEST_REWARD", null, "Recompensă Quest: " + quest.getTitle());
         }
 
-        // C. Produs Fizic (Existent)
+        // C. Produs Fizic
         if (quest.getRewardProduct() != null) {
             UserInventoryItem newItem = UserInventoryItem.builder()
-                    .user(user).product(quest.getRewardProduct()).status("IN_INVENTORY").build();
+                    .user(user)
+                    .product(quest.getRewardProduct())
+                    .status("IN_INVENTORY")
+                    .build();
             inventoryService.saveInventoryItem(newItem);
         }
 
-        // --- 3. RESTAURARE: Recompensă Item RPG ---
+        // D. Item RPG (NOU)
         if (quest.getRewardItemTemplate() != null) {
             UserItem newItem = UserItem.builder()
                     .user(user)
@@ -513,84 +542,26 @@ public class QuestService {
         return mapToLogDto(questLogRepository.save(log));
     }
 
-    public List<UserQuestLogDto> getUserQuestLog(User user) {
-        // Acum Repository-ul returnează și EXPIRED
-        List<UserQuestLog> logs = questLogRepository.findAllByUserAndStatusInForDisplay(user);
+    @Scheduled(cron = "0 0 0 * * *")
+    @Transactional
+    public void expireOverdueQuests() {
+        System.out.println("--- CRON: Checking for expired quests... ---");
 
-        return logs.stream()
-                // Filtrăm doar să nu fie REWARDED foarte vechi. EXPIRED trece.
-                .filter(log -> log.getStatus() != QuestStatus.REWARDED || log.getCompletionDate().isAfter(LocalDateTime.now().minusDays(30)))
-                .map(log -> {
+        List<UserQuestLog> activeLogs = questLogRepository.findAllActiveLogsWithQuest();
+        LocalDate today = LocalDate.now();
+        int expiredCount = 0;
 
-                    // Dacă e EXPIRED, nu recalculăm progresul (nu are sens, e istoric)
-                    if (log.getStatus() == QuestStatus.EXPIRED) {
-                        return mapToLogDto(log);
-                    }
+        for (UserQuestLog log : activeLogs) {
+            int duration = log.getQuest().getDurationDays();
+            LocalDate expirationDate = log.getStartDate().plusDays(duration);
 
-                    Set<UserCriterionProgress> currentProgressSet = log.getCriterionProgress();
-
-                    // Dacă cumva setul e gol (din cauza unui update anterior), încercăm să-l populăm
-                    // Aceasta este o plasă de siguranță
-                    if (currentProgressSet == null || currentProgressSet.isEmpty()) {
-                        initializeCriterionProgress(log, log.getQuest().getCriteria());
-                        // Reîncărcăm pentru a avea datele
-                        currentProgressSet = log.getCriterionProgress();
-                    }
-
-                    for (UserCriterionProgress p : currentProgressSet) {
-                        if (!p.getIsCompleted()) {
-                            double historyProgress = calculateProgressFromHistory(user, p.getCriterion(), log.getStartDate().atStartOfDay());
-
-                            if (historyProgress > p.getCurrentProgress()) {
-                                p.setCurrentProgress(Math.min(historyProgress, p.getCriterion().getRequiredAmount()));
-                                p.setIsCompleted(historyProgress >= p.getCriterion().getRequiredAmount());
-                                criterionProgressRepository.save(p);
-                            }
-                        }
-                    }
-
-                    boolean allMet = !currentProgressSet.isEmpty() && currentProgressSet.stream().allMatch(UserCriterionProgress::getIsCompleted);
-
-                    if (allMet && log.getStatus() == QuestStatus.ACTIVE) {
-                        log.setStatus(QuestStatus.COMPLETED);
-                        log.setCompletionDate(LocalDateTime.now());
-                        questLogRepository.save(log);
-                        // NOTIFICARE:
-                        notificationService.notifyUser(
-                                user,
-                                "QUEST COMPLETAT: " + log.getQuest().getTitle() + "! Revendică recompensa acum.",
-                                NotificationType.QUEST_COMPLETED,
-                                "/quests"
-                        );
-                    }
-
-                    return mapToLogDto(log);
-                })
-                .collect(Collectors.toList());
-    }
-    public UserQuestLogDto getQuestPreview(Long questId) {
-        Quest quest = questRepository.findById(questId)
-                .orElseThrow(() -> new ResourceNotFoundException("Quest-ul nu a fost găsit."));
-
-        UserQuestLog mockLog = UserQuestLog.builder()
-                .quest(quest)
-                .status(QuestStatus.ACTIVE)
-                .startDate(LocalDate.now())
-                .build();
-
-        Set<UserCriterionProgress> mockProgressList = quest.getCriteria().stream()
-                .map(criterion -> {
-                    return UserCriterionProgress.builder()
-                            .userQuestLog(mockLog)
-                            .criterion(criterion)
-                            .currentProgress(0.0)
-                            .isCompleted(false)
-                            .uniqueKey("MOCK_" + criterion.getId())
-                            .build();
-                })
-                .collect(Collectors.toSet());
-
-        mockLog.setCriterionProgress(mockProgressList);
-        return mapToLogDto(mockLog);
+            if (today.isAfter(expirationDate)) {
+                log.setStatus(QuestStatus.EXPIRED);
+                log.setCompletionDate(LocalDateTime.now());
+                questLogRepository.save(log);
+                expiredCount++;
+            }
+        }
+        System.out.println("--- CRON: Expired " + expiredCount + " quests. ---");
     }
 }

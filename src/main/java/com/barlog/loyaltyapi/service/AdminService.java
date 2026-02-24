@@ -1,9 +1,9 @@
 package com.barlog.loyaltyapi.service;
 
 import com.barlog.loyaltyapi.dto.*;
+import com.barlog.loyaltyapi.exception.ResourceNotFoundException;
 import com.barlog.loyaltyapi.model.*;
-import com.barlog.loyaltyapi.repository.CoinTransactionRepository;
-import com.barlog.loyaltyapi.repository.UserRepository;
+import com.barlog.loyaltyapi.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -28,6 +28,49 @@ public class AdminService {
     private final Random random = new Random();
     private final BonusService bonusService;
     private final ProductService productService;
+    private final ProductRepository productRepository;
+    private final UserInventoryItemRepository userInventoryItemRepository;
+    private final ItemTemplateRepository itemTemplateRepository;
+    private final UserItemRepository userItemRepository;
+
+
+    @Transactional
+    public void giftItemOrProduct(AdminGiftRequest request) {
+        User user = userRepository.findByEmail(request.getUserEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Utilizator negăsit: " + request.getUserEmail()));
+
+        if ("ITEM".equalsIgnoreCase(request.getType())) {
+            // Gift RPG Item
+            ItemTemplate item = itemTemplateRepository.findById(request.getTargetId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Item RPG negăsit ID: " + request.getTargetId()));
+
+            UserItem newItem = UserItem.builder()
+                    .user(user)
+                    .itemTemplate(item)
+                    .isEquipped(false)
+                    .build();
+            userItemRepository.save(newItem);
+
+            notificationService.notifyUser(user, "Adminul ți-a oferit un cadou: " + item.getName(), NotificationType.SYSTEM, "/character");
+
+        } else if ("PRODUCT".equalsIgnoreCase(request.getType())) {
+            // Gift Produs Fizic
+            Product product = productRepository.findById(request.getTargetId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Produs negăsit ID: " + request.getTargetId()));
+
+            UserInventoryItem newInvItem = UserInventoryItem.builder()
+                    .user(user)
+                    .product(product)
+                    .status("IN_INVENTORY")
+                    .build();
+            userInventoryItemRepository.save(newInvItem);
+
+            notificationService.notifyUser(user, "Adminul ți-a oferit un produs: " + product.getName(), NotificationType.SYSTEM, "/inventory");
+        } else {
+            throw new IllegalArgumentException("Tip invalid. Folosește 'ITEM' sau 'PRODUCT'.");
+        }
+    }
+
 
     public UserResponseDto getUserById(Long userId) {
         User user = userRepository.findById(userId)
@@ -57,7 +100,17 @@ public class AdminService {
 
         // Doar dacă adăugăm monede (nu dacă scădem)
         if (baseAmount > 0) {
-            // 1. Verificăm șansa de LUCKY_SCAN
+
+            // 1. Verificăm multiplicatorul global de monede (COIN_BOOST_GLOBAL)
+            // Dacă nu are niciun bonus, va returna 1.0
+            double coinMultiplier = bonusService.calculateMultiplier(user, ItemEffectType.COIN_BOOST_GLOBAL, null);
+
+            if (coinMultiplier > 1.0) {
+                finalAmount = (int) Math.round(baseAmount * coinMultiplier);
+                finalDescription += String.format(" (Bonus Echipament: %.0f%%)", (coinMultiplier - 1.0) * 100);
+            }
+
+            // 2. Verificăm șansa de LUCKY_SCAN (Monedă bonus la noroc)
             // Suma valorilor efectelor LUCKY_SCAN_BONUS (ex: inel cu 5.0 + amuletă cu 10.0 = 15.0 șansă)
             double luckChance = bonusService.calculateFlatBonus(user, ItemEffectType.LUCKY_SCAN_BONUS);
 
@@ -69,7 +122,7 @@ public class AdminService {
                 finalAmount += 1; // Adăugăm moneda extra
                 finalDescription += " (+1 Noroc)"; // Marcăm în istoric
 
-                // Opțional: Trimitem o notificare specială
+                // Trimitem o notificare specială pentru noroc
                 notificationService.notifyUser(
                         user,
                         "Noroc Chior! Ai primit o monedă în plus de la echipamentul tău!",
@@ -102,7 +155,6 @@ public class AdminService {
         User updatedUser = userRepository.save(user);
         return mapUserToDto(updatedUser);
     }
-
     @Transactional
     public UserResponseDto addCoinsToUser(Long userId, AddCoinsRequestDto request) {
         User user = userRepository.findById(userId)
@@ -158,6 +210,9 @@ public class AdminService {
                     if (user.getAvatarUrl() != null && !user.getAvatarUrl().isEmpty()) {
                         avatarUrl = fileStorageService.getImageUrlFromPublicId(user.getAvatarUrl());
                     }
+                    // Verificăm dacă are abonament în ultimele 30 de zile
+                    LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
+                    boolean isPrestige = coinTransactionRepository.hasActiveSubscription(user, thirtyDaysAgo);
 
                     return new UserLeaderboardDto(
                             user.getFirstName(),
@@ -166,6 +221,7 @@ public class AdminService {
                             user.getCoins(),
                             user.getExperience(), // Tipul este Double
                             user.getNickname(),
+                            isPrestige,
                             avatarUrl, // NOU: Avatar URL
                             levelService.calculateLevelInfo(user.getExperience())
                     );
@@ -210,12 +266,17 @@ public class AdminService {
         dto.setIntelligence(user.getIntelligence());
         dto.setCharisma(user.getCharisma());
         dto.setUnallocatedPoints(user.getUnallocatedPoints());
+        // Verificăm dacă are abonament în ultimele 30 de zile
+        LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
+        boolean isPrestige = coinTransactionRepository.hasActiveSubscription(user, thirtyDaysAgo);
+        dto.setHasPrestige(isPrestige);
         // NOU: Maparea Avatarului
         if (user.getAvatarUrl() != null && !user.getAvatarUrl().isEmpty()) {
             dto.setAvatarUrl(fileStorageService.getImageUrlFromPublicId(user.getAvatarUrl()));
         } else {
             dto.setAvatarUrl(null); // Sau URL-ul unui avatar implicit
         }
+
         dto.setRecoveryKey(user.getRecoveryKey());
         return dto;
     }

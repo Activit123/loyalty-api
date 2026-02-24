@@ -65,6 +65,49 @@ public class ItemService {
         return itemTemplateRepository.save(item);
     }
 
+
+
+    public ItemTemplate getItemTemplateById(Long id) {
+        return itemTemplateRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Item-ul nu a fost găsit."));
+    }
+
+    // Helper pentru mapare (dacă nu există deja)
+    public UserItemDto mapTemplateToDto(ItemTemplate template) {
+        UserItemDto dto = new UserItemDto();
+        dto.setTemplateId(template.getId());
+        dto.setName(template.getName());
+        dto.setDescription(template.getDescription());
+
+        if (template.getImageUrl() != null && !template.getImageUrl().startsWith("http")) {
+            dto.setImageUrl(fileStorageService.getImageUrlFromPublicId(template.getImageUrl()));
+        } else {
+            dto.setImageUrl(template.getImageUrl());
+        }
+
+        dto.setSlot(template.getSlot());
+        dto.setRarity(template.getRarity());
+        dto.setMinLevel(template.getMinLevel());
+        dto.setReqStr(template.getReqStr());
+        dto.setReqDex(template.getReqDex());
+        dto.setReqInt(template.getReqInt());
+        dto.setReqCha(template.getReqCha());
+
+        if (template.getEffects() != null) {
+            List<ItemEffectDto> effectDtos = template.getEffects().stream()
+                    .map(eff -> {
+                        ItemEffectDto eDto = new ItemEffectDto();
+                        eDto.setEffectType(eff.getEffectType());
+                        eDto.setValue(eff.getValue());
+                        eDto.setTargetCategory(eff.getTargetCategory());
+                        return eDto;
+                    }).collect(Collectors.toList());
+            dto.setEffects(effectDtos);
+        }
+
+        return dto;
+    }
+
     @Transactional
     public ItemTemplate createItemTemplate(ItemTemplateRequestDto dto, MultipartFile imageFile) {
         String publicId = null;
@@ -284,7 +327,8 @@ public class ItemService {
     }
 
     // Helper Mapper
-    private UserItemDto mapToDto(UserItem userItem) {
+
+    public UserItemDto mapToDto(UserItem userItem) {
         UserItemDto dto = new UserItemDto();
         dto.setId(userItem.getId());
         dto.setTemplateId(userItem.getItemTemplate().getId());
