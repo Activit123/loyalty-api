@@ -286,25 +286,33 @@ public class AdminService {
         List<User> allUsers = userRepository.findAll();
 
         for (User user : allUsers) {
-            // 1. Reset la baza rasei (sau 1 dacă nu are rasă)
+            // 1. Determine base stats from Race
             if (user.getRace() != null) {
-                user.setStrength(user.getRace().getBaseStr());
-                user.setDexterity(user.getRace().getBaseDex());
-                user.setIntelligence(user.getRace().getBaseInt());
-                user.setCharisma(user.getRace().getBaseCha());
+                Race race = user.getRace();
+                user.setStrength(race.getBaseStr() != null ? race.getBaseStr() : 1);
+                user.setDexterity(race.getBaseDex() != null ? race.getBaseDex() : 1);
+                user.setIntelligence(race.getBaseInt() != null ? race.getBaseInt() : 1);
+                user.setCharisma(race.getBaseCha() != null ? race.getBaseCha() : 1);
             } else {
+                // Default stats for those who haven't picked a race yet
                 user.setStrength(1);
                 user.setDexterity(1);
                 user.setIntelligence(1);
                 user.setCharisma(1);
             }
 
-            // 2. Calcul puncte de nivel
-            // Formula: (Level - 1) * 5
+            // 2. Calculate Level and Points
+            // Your LevelService.calculateLevelInfo uses totalXp to find current level
             LevelInfoDto levelInfo = levelService.calculateLevelInfo(user.getExperience());
-            int pointsEarned = (levelInfo.getLevel() - 1) * 5;
+            int currentLevel = levelInfo.getLevel();
 
-            user.setUnallocatedPoints(pointsEarned);
+            // Logic: 5 points for every level gained AFTER level 1
+            // Level 1 = 0 points, Level 2 = 5 points, Level 3 = 10 points, etc.
+            int totalPointsToGive = (currentLevel - 1) * 5;
+
+            // 3. Set the unallocated points
+            // We reset this to the total so they can spend them all from scratch
+            user.setUnallocatedPoints(totalPointsToGive);
 
             userRepository.save(user);
         }

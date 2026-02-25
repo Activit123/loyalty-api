@@ -42,6 +42,12 @@ public class AdminActionsController {
         return ResponseEntity.ok("Quest marcat ca fiind completat pentru " + request.getUserEmail());
     }
 
+    @PostMapping("/sync-stats-retroactive")
+    public ResponseEntity<String> syncStatsRetroactive() {
+        adminService.recalculateStatsForEveryone();
+        return ResponseEntity.ok("Successfully synchronized stats and awarded points for all users based on their levels and races!");
+    }
+
     @GetMapping("/users/by-email/{email}")
     public ResponseEntity<UserResponseDto> getUserDetailsByEmail(@PathVariable String email) {
         UserResponseDto userDto = adminService.getUserByEmail(email);
