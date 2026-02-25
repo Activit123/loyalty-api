@@ -14,7 +14,7 @@ public class UserQuestLogDto {
     private String status; // ACTIVE, COMPLETED, REWARDED
     private LocalDate startDate;
     private LocalDateTime completionDate;
-
+    private Integer durationDays;
     // --- Recompense ---
     private Integer rewardCoins;
     private Double rewardXp;

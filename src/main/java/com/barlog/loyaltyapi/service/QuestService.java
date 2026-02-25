@@ -99,6 +99,7 @@ public class QuestService {
         dto.setDescription(log.getQuest().getDescription());
         dto.setStatus(log.getStatus().name());
         dto.setStartDate(log.getStartDate());
+        dto.setDurationDays(log.getQuest().getDurationDays());
         dto.setCompletionDate(log.getCompletionDate());
 
         Quest quest = log.getQuest();
