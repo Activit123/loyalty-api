@@ -8,8 +8,8 @@ public enum MenuItemCategory {
     COFFEE_TEA("Cafea & Ceai"),
     ENERGY_DRINKS("Energizante"),
     SNACKS("Snackuri & Ronțăieli"),
-    CRAFT_BEER("Bere Craft");
-
+    CRAFT_BEER("Bere Craft"),
+    WINE("Vin"); // <-- Adăugat
     private final String displayName;
 
     MenuItemCategory(String displayName) {

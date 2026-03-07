@@ -122,7 +122,7 @@ public class ExperienceService {
                 if (category == ProductCategory.SUBSCRIPTION) return race.getLoyaltyBonusXpMultiplier();
                 break;
             case "ENERGY_DRINK":
-                if (Set.of(ProductCategory.ENERGY_DRINK, ProductCategory.SOFT_DRINK).contains(category)) return race.getLoyaltyBonusXpMultiplier();
+                if (Set.of(ProductCategory.ENERGY_DRINK, ProductCategory.SOFT_DRINK, ProductCategory.WINE).contains(category)) return race.getLoyaltyBonusXpMultiplier();
                 break;
             case "SNACKS_SALT":
                 if (Set.of(ProductCategory.SNACKS_SALT, ProductCategory.BEER).contains(category)) return race.getLoyaltyBonusXpMultiplier();
@@ -130,6 +130,7 @@ public class ExperienceService {
             case "ENTRY_FEE":
                 if (category == ProductCategory.ENTRY_FEE) return race.getLoyaltyBonusXpMultiplier();
                 break;
+
             default:
                 return 1.0;
         }
